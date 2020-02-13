@@ -1,0 +1,2 @@
+class EmptyNullableException(Exception):
+    pass

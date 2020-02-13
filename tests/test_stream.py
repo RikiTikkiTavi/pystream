@@ -1,6 +1,6 @@
 import unittest
 
-from jivago_streams import Stream
+from pystream.Stream import Stream
 
 
 class StreamTest(unittest.TestCase):
@@ -26,26 +26,26 @@ class StreamTest(unittest.TestCase):
         self.assertEqual(expected, result)
 
     def test_givenAnElementThatMatches_whenCheckingAnyMatch_thenReturnTrue(self):
-        result = self.stream.anyMatch(StreamTest.DIVIDES_BY_THREE)
+        result = self.stream.any(StreamTest.DIVIDES_BY_THREE)
 
         self.assertTrue(result)
 
     def test_givenNotAllElementsMatch_whenCheckingAllMatch_thenReturnFalse(self):
-        result = self.stream.allMatch(StreamTest.DIVIDES_BY_THREE)
+        result = self.stream.all(StreamTest.DIVIDES_BY_THREE)
 
         self.assertFalse(result)
 
     def test_givenAllMatchingElements_whenCheckingAllMatch_thenReturnTrue(self):
         always_true = lambda x: True
 
-        result = self.stream.allMatch(always_true)
+        result = self.stream.all(always_true)
 
         self.assertTrue(result)
 
     def test_givenNoMatchingElements_whenCheckingAnyMatch_thenReturnFalse(self):
         always_false = lambda x: False
 
-        result = self.stream.anyMatch(always_false)
+        result = self.stream.any(always_false)
 
         self.assertFalse(result)
 
@@ -75,7 +75,7 @@ class StreamTest(unittest.TestCase):
         result = []
         add_to_list = lambda x: result.append(x)
 
-        self.stream.forEach(add_to_list)
+        self.stream.for_each(add_to_list)
 
         self.assertEqual(self.COLLECTION, result)
 
@@ -84,7 +84,7 @@ class StreamTest(unittest.TestCase):
         self.stream = Stream([(1, -1), (2, -2)])
         add_sum_to_list = lambda x, y: result.append(x + y)
 
-        self.stream.forEach(add_sum_to_list)
+        self.stream.for_each(add_sum_to_list)
 
         self.assertEqual([0, 0], result)
 
@@ -99,7 +99,7 @@ class StreamTest(unittest.TestCase):
         self.assertEqual([(i, i) for i in self.COLLECTION], result)
 
     def test_givenFunctionWithTwoParameters_whenFindingFirstMatch_thenExpandTuplesWhenCallingFunction(self):
-        result = self.stream.map(lambda x: (x, x)).firstMatch(lambda x, y: x == y)
+        result = self.stream.map(lambda x: (x, x)).find_first(lambda x, y: x == y)
 
         self.assertEqual((self.COLLECTION[0], self.COLLECTION[0]), result.get())
 
@@ -115,14 +115,14 @@ class StreamTest(unittest.TestCase):
     def test_givenNoMatchingElements_whenCheckingNoneMatch_thenReturnTrue(self):
         always_false = lambda x: False
 
-        result = Stream(self.COLLECTION).noneMatch(always_false)
+        result = Stream(self.COLLECTION).none(always_false)
 
         self.assertTrue(result)
 
     def test_givenMatchingElements_whenCheckingNoneMatch_thenReturnFalse(self):
         sometimes_true = lambda x: x % 2 == 0
 
-        result = Stream(self.COLLECTION).noneMatch(sometimes_true)
+        result = Stream(self.COLLECTION).none(sometimes_true)
 
         self.assertFalse(result)
 
@@ -244,7 +244,7 @@ class StreamTest(unittest.TestCase):
     def test_givenEmptyStream_whenGettingFirst_thenReturnEmptyNullable(self):
         first = Stream([]).first()
 
-        self.assertFalse(first.isPresent())
+        self.assertFalse(first.is_present())
 
 
 class AClassWithAMethod(object):
