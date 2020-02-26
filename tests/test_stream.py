@@ -108,7 +108,7 @@ class StreamTest(unittest.TestCase):
             self.stream.map(lambda x, y: x + y).toList()
 
     def test_givenStreamOfLists_whenFlattening_thenReturnStreamOfConcatenatedLists(self):
-        result = Stream(self.BUMPY_COLLECTION).flat().toList()
+        result = Stream(self.BUMPY_COLLECTION).flat_map().toList()
 
         self.assertEqual(self.COLLECTION, result)
 

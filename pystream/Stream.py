@@ -1,14 +1,17 @@
 import inspect
 import itertools
-from typing import Generic, TypeVar, Optional, Callable, Union, Iterable, Any, List, Set, Tuple, Iterator
+from typing import Generic, TypeVar, Callable, Iterable, Any, List, Set, Tuple, ClassVar
 
 from pystream.Nullable import Nullable
+from pystream.interfaces.CollectorInterface import COLLECTED_TYPE
+from pystream.mixins.StreamCreatorsMixin import StreamCreatorsMixin
+from pystream.abstracts.AbstractBaseStream import AbstractBaseStream
 
 T = TypeVar('T')
 S = TypeVar('S')
 
 
-class Stream(Generic[T], Iterable[T]):
+class Stream(Generic[T], AbstractBaseStream[T], StreamCreatorsMixin):
     """Stream class to perform functional-style operations in an aesthetically-pleasing manner.
 
     Args:
@@ -17,41 +20,25 @@ class Stream(Generic[T], Iterable[T]):
     """
 
     def __init__(self, *iterables: Iterable[T]):
-        self.iterable: Iterator = itertools.chain(*iterables)
-
-    def __iter__(self) -> Iterator:
-        return iter(self.iterable)
+        super().__init__(*iterables)
 
     def map(self, fun: Callable[[T], S]) -> "Stream[S]":
         """
         Maps elements using the supplied function. When iterating over tuples, the function can take multiple
         arguments.
         """
-        if self.__should_expand(fun):
-            return Stream(map(lambda tup: fun(*tup), self.iterable))
-        else:
-            return Stream(map(fun, self.iterable))
+        return Stream(map(fun, self.iterable))
 
-    def filter(self, fun: Callable[[T], S]) -> "Stream[S]":
-        """
-        Filters elements using the supplied function.
-        When iterating over tuples, the function can take multiple arguments.
-        """
-        if self.__should_expand(fun):
-            return Stream(filter(lambda tup: fun(*tup), self.iterable))
-        else:
-            return Stream(filter(fun, self.iterable))
+    def filter(self, fun: Callable[[T], bool]) -> "Stream[T]":
+        """Filters elements using the supplied function."""
+        return Stream(filter(fun, self.iterable))
 
     def for_each(self, fun: Callable[[T], Any]) -> None:
         """
         Calls the function with each element. This is a terminal operation.
         """
-        if self.__should_expand(fun):
-            for i in self:
-                fun(*i)
-        else:
-            for i in self:
-                fun(i)
+        for i in self:
+            fun(i)
 
     def any(self, fun: Callable[[T], bool]) -> bool:
         """Returns True if any element of the stream matches the criteria."""
@@ -69,49 +56,16 @@ class Stream(Generic[T], Iterable[T]):
         """
         Returns a Nullable of the first element matching the criteria. If none exist, returns an empty Nullable.
         """
-        if self.__should_expand(fun):
-            for i in self:
-                if fun(*i):
-                    return Nullable(i)
-        else:
-            for i in self:
-                if fun(i):
-                    return Nullable(i)
+        for i in self:
+            if fun(i):
+                return Nullable(i)
         return Nullable.empty()
 
-    def flat(self) -> "Stream[T]":
+    def flat_map(self, mapper: Callable[[T], "Stream[S]"]) -> "Stream[S]":
         """
-        When iterating over lists, flattens the stream by concatenating all lists.
+        When iterating over lists, flattens the stream by concatenating all lists using mapper function.
         """
-        return Stream(itertools.chain(*self))
-
-    def toList(self) -> List[T]:
-        """Collects all elements to a list."""
-        return list(self)
-
-    def toSet(self) -> Set[T]:
-        """Collects all elements to a set."""
-        return set(self)
-
-    def toDict(self) -> dict:
-        """
-        When iterating over tuples, collects all elements to a dictionary.
-        The first element becomes the key, the second the value.
-        """
-        return dict(self)
-
-    def toTuple(self) -> Tuple[T]:
-        """Collects all elements to a tuple."""
-        return tuple(self)
-
-    def __should_expand(self, fun: Callable) -> bool:
-        if inspect.isbuiltin(fun):
-            return False
-        if inspect.isclass(fun):
-            return len(inspect.signature(fun.__init__).parameters) > 2
-        else:
-            sig = inspect.signature(fun)
-        return len(sig.parameters) > 1
+        return Stream(itertools.chain(*map(mapper, self.iterable)))
 
     def count(self) -> int:
         """
@@ -121,7 +75,7 @@ class Stream(Generic[T], Iterable[T]):
             return len(self.iterable)
         return self.reduce(0, lambda accumulator, element: accumulator + 1)
 
-    def reduce(self, start_value: Any, reducer: Callable[[Any, T], Any]):
+    def reduce(self, start_value: S, reducer: Callable[[S, T], S]) -> S:
         """ Reduce using the supplied function.
 
         Args:
@@ -132,28 +86,11 @@ class Stream(Generic[T], Iterable[T]):
             accumulator = reducer(accumulator, element)
         return accumulator
 
-    @staticmethod
-    def zip(*iterables: Iterable[T]) -> "Stream[Tuple[T]]":
-        """Creates a stream by *zipping* the iterables, instead of concatenating them.
-
-        Returns:
-            Stream of tuples.
-        """
-        return Stream(zip(*iterables))
-
     def unzip(self) -> Tuple[tuple, ...]:
-        """When iterating over tuples, unwraps the stream back to separate lists."""
-        return tuple(zip(*self))
-
-    @staticmethod
-    def of(*args) -> "Stream":
-        """Creates a stream with non iterable arguments.
-
-        Examples:
-            >>> Stream.of(1,2,3,4).toList()
-            [1,2,3,4]
-            """
-        return Stream(args)
+        """
+        When iterating over tuples, unwraps the stream back to separate lists. This is a terminal operation.
+        """
+        return tuple(zip(*self.iterable))
 
     def sum(self):
         """Returns the sum of all elements in the stream."""
@@ -167,26 +104,18 @@ class Stream(Generic[T], Iterable[T]):
         """Returns the max of all elements in the stream."""
         return max(self)
 
+    def average(self) -> float:
+        """Returns the average of all elements in the stream."""
+        s: float = 0
+        length: int = 0
+        for i in self:
+            s += i
+            length += 1
+        return s / length if length != 0 else 0
+
     def take(self, number: int) -> "Stream[T]":
-        """Limit the stream to a specific number of items.
-
-        Examples:
-            >>> Stream.range().take(5).toList()
-            [0,1,2,3,4]
-            """
+        """Limit the stream to a specific number of items."""
         return Stream(itertools.islice(self, number))
-
-    @staticmethod
-    def range(*args) -> "Stream[int]":
-        """
-        Creates an incrementing, integer stream.
-        If arguments are supplied, they are passed as-is to the builtin `range` function.
-        Otherwise, an infinite stream is created, starting at 0.
-        """
-        if len(args) == 0:
-            return Stream(itertools.count())
-        else:
-            return Stream(range(*args))
 
     def first(self) -> Nullable[T]:
         """
@@ -194,3 +123,6 @@ class Stream(Generic[T], Iterable[T]):
         If the stream is empty, returns an empty nullable.
         """
         return Nullable(next(self.iterable, None))
+
+    def collect(self, collector: Callable[['Stream[T]'], COLLECTED_TYPE]) -> COLLECTED_TYPE:
+        return collector(self)
