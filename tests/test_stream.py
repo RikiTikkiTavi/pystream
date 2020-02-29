@@ -1,6 +1,6 @@
 import unittest
 
-from pystream.Stream import Stream
+from pystream.stream import Stream
 
 
 class StreamTest(unittest.TestCase):

@@ -1,17 +1,16 @@
-import inspect
 import itertools
 from typing import Generic, TypeVar, Callable, Iterable, Any, List, Set, Tuple, ClassVar
 
-from pystream.Nullable import Nullable
-from pystream.interfaces.CollectorInterface import COLLECTED_TYPE
-from pystream.mixins.StreamCreatorsMixin import StreamCreatorsMixin
-from pystream.abstracts.AbstractBaseStream import AbstractBaseStream
+from pystream.nullable import Nullable
+import pystream.collectors as collectors
+import pystream.mixins.stream_creators_mixin as stream_creators_mixin
+from pystream.abstracts.abstract_base_stream import AbstractBaseStream
 
 T = TypeVar('T')
 S = TypeVar('S')
 
 
-class Stream(Generic[T], AbstractBaseStream[T], StreamCreatorsMixin):
+class Stream(Generic[T], AbstractBaseStream[T], stream_creators_mixin.StreamCreatorsMixin):
     """Stream class to perform functional-style operations in an aesthetically-pleasing manner.
 
     Args:
@@ -124,5 +123,5 @@ class Stream(Generic[T], AbstractBaseStream[T], StreamCreatorsMixin):
         """
         return Nullable(next(self.iterable, None))
 
-    def collect(self, collector: Callable[['Stream[T]'], COLLECTED_TYPE]) -> COLLECTED_TYPE:
-        return collector(self)
+    def collect(self, collector: collectors.Collector[T, S]) -> S:
+        return collector.collect(self)
