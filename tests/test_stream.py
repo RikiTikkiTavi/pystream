@@ -246,6 +246,9 @@ class StreamTest(unittest.TestCase):
 
         self.assertFalse(first.is_present())
 
+    def test_map_overloading(self):
+        stream = Stream.of("1", "2", "3").map(int).for_each(print)
+
 
 class AClassWithAMethod(object):
 

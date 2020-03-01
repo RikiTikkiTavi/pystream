@@ -1,19 +1,19 @@
-from typing import TypeVar, Callable, Iterable, Collection, Generic, Hashable, Dict
+from typing import TypeVar, Callable, Iterable, Collection, Hashable, Dict, Generic
 import pystream.stream as s
+import pystream.abstracts.abstract_collector as a_c
 
 T = TypeVar('T')
 R = TypeVar('R')
 H = TypeVar('H', bound=Hashable)
 
 
-class Collector(Generic[T, R]):
-    __collector_func: Callable[["s.Stream[T]"], R]
+class Collector(Generic[T, R], a_c.AbstractCollector[T, R]):
 
     def __init__(self, collector_func: Callable[["s.Stream[T]"], R]):
-        self.__collector_func = collector_func
+        super().__init__(collector_func)
 
     def collect(self, stream: "s.Stream[T]") -> R:
-        return self.__collector_func(stream)
+        return self._collector_func(stream)
 
 
 def to_collection(collection: Callable[[Iterable[T]], Collection[T]]) -> Collector[T, Collection[T]]:

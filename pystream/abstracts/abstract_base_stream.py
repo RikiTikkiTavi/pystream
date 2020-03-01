@@ -7,13 +7,10 @@ T = TypeVar('T', bound=Number)
 
 
 class AbstractBaseStream(ABC, Generic[T], Iterable[T]):
-    iterable: Iterator[T]
+    _iterable: Iterator[T]
 
     def __init__(self, *iterables: Iterable[T]):
-        self.iterable = itertools.chain(*iterables)
-
-    def iterator(self) -> Iterator[T]:
-        return self.iterable
+        self._iterable = itertools.chain(*iterables)
 
     def __iter__(self) -> Iterator[T]:
-        return self.iterable
+        return self._iterable

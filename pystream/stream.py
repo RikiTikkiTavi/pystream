@@ -1,10 +1,12 @@
 import itertools
-from typing import Generic, TypeVar, Callable, Iterable, Any, List, Set, Tuple, ClassVar
+from functools import reduce
+from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple
 
 from pystream.nullable import Nullable
-import pystream.collectors as collectors
+import pystream.collectors.single_thread as collectors
 import pystream.mixins.stream_creators_mixin as stream_creators_mixin
 from pystream.abstracts.abstract_base_stream import AbstractBaseStream
+import pystream.abstracts.abstract_collector as a_c
 
 T = TypeVar('T')
 S = TypeVar('S')
@@ -22,20 +24,19 @@ class Stream(Generic[T], AbstractBaseStream[T], stream_creators_mixin.StreamCrea
         super().__init__(*iterables)
 
     def map(self, fun: Callable[[T], S]) -> "Stream[S]":
-        """
-        Maps elements using the supplied function. When iterating over tuples, the function can take multiple
-        arguments.
-        """
-        return Stream(map(fun, self.iterable))
+        """Maps elements using the supplied function."""
+        return Stream(map(fun, self._iterable))
 
     def filter(self, fun: Callable[[T], bool]) -> "Stream[T]":
         """Filters elements using the supplied function."""
-        return Stream(filter(fun, self.iterable))
+        return Stream(filter(fun, self._iterable))
+
+    def reduce(self, start_value: S, reducer: Callable[[S, T], S]) -> S:
+        """Reduce using the supplied function."""
+        return reduce(reducer, self._iterable, start_value)
 
     def for_each(self, fun: Callable[[T], Any]) -> None:
-        """
-        Calls the function with each element. This is a terminal operation.
-        """
+        """Calls the function with each element. This is a terminal operation."""
         for i in self:
             fun(i)
 
@@ -64,34 +65,24 @@ class Stream(Generic[T], AbstractBaseStream[T], stream_creators_mixin.StreamCrea
         """
         When iterating over lists, flattens the stream by concatenating all lists using mapper function.
         """
-        return Stream(itertools.chain(*map(mapper, self.iterable)))
+        return Stream(itertools.chain(*map(mapper, self._iterable)))
 
     def count(self) -> int:
         """
         Returns the number of elements in the Stream. **Should never be used with an infinite stream!**
         """
-        if hasattr(self.iterable, '__len__'):
-            return len(self.iterable)
+        if hasattr(self._iterable, '__len__'):
+            # noinspection PyTypeChecker
+            return len(self._iterable)
         return self.reduce(0, lambda accumulator, element: accumulator + 1)
-
-    def reduce(self, start_value: S, reducer: Callable[[S, T], S]) -> S:
-        """ Reduce using the supplied function.
-
-        Args:
-            start_value: starting value for the accumulator.
-            reducer (Callable) : e.g. lambda accumulator, element: accumulator + element"""
-        accumulator = start_value
-        for element in self:
-            accumulator = reducer(accumulator, element)
-        return accumulator
 
     def unzip(self) -> Tuple[tuple, ...]:
         """
         When iterating over tuples, unwraps the stream back to separate lists. This is a terminal operation.
         """
-        return tuple(zip(*self.iterable))
+        return tuple(zip(*self._iterable))
 
-    def sum(self):
+    def sum(self) -> T:
         """Returns the sum of all elements in the stream."""
         return sum(self)
 
@@ -121,7 +112,7 @@ class Stream(Generic[T], AbstractBaseStream[T], stream_creators_mixin.StreamCrea
         Returns a nullable containing the first element of the stream.
         If the stream is empty, returns an empty nullable.
         """
-        return Nullable(next(self.iterable, None))
+        return Nullable(next(self._iterable, None))
 
-    def collect(self, collector: collectors.Collector[T, S]) -> S:
+    def collect(self, collector: a_c.AbstractCollector[T, S]) -> S:
         return collector.collect(self)
