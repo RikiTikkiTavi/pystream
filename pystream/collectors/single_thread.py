@@ -9,14 +9,14 @@ H = TypeVar('H', bound=Hashable)
 
 class Collector(Generic[T, R], a_c.AbstractCollector[T, R]):
 
-    def __init__(self, collector_func: Callable[["s.Stream[T]"], R]):
+    def __init__(self, collector_func: Callable[[s.Stream[T]], R]):
         super().__init__(collector_func)
 
-    def collect(self, stream: "s.Stream[T]") -> R:
+    def collect(self, stream: s.Stream[T]) -> R:
         return self._collector_func(stream)
 
 
-def to_collection(collection: Callable[[Iterable[T]], Collection[T]]) -> Collector[T, Collection[T]]:
+def to_collection(collection: Callable[[Iterable[T]], R]) -> Collector[T, R]:
     return Collector(collection)
 
 

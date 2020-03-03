@@ -1,7 +1,8 @@
 import itertools
 from functools import reduce
-from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple
+from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Optional
 
+from pystream.exceptions import SuppliedNoneException
 from pystream.nullable import Nullable
 import pystream.collectors.single_thread as collectors
 import pystream.mixins.stream_creators_mixin as stream_creators_mixin
@@ -37,7 +38,7 @@ class Stream(Generic[T], AbstractBaseStream[T], stream_creators_mixin.StreamCrea
 
     def for_each(self, fun: Callable[[T], Any]) -> None:
         """Calls the function with each element. This is a terminal operation."""
-        for i in self:
+        for i in self._iterable:
             fun(i)
 
     def any(self, fun: Callable[[T], bool]) -> bool:
@@ -52,14 +53,13 @@ class Stream(Generic[T], AbstractBaseStream[T], stream_creators_mixin.StreamCrea
         """Returns True if no element of the stream matches the criteria."""
         return not self.any(fun)
 
-    def find_first(self, fun: Callable[[T], bool]) -> Nullable[T]:
+    def find_first(self) -> Nullable[T]:
         """
-        Returns a Nullable of the first element matching the criteria. If none exist, returns an empty Nullable.
+        Returns an Nullable describing the first element of this stream, or an empty Nullable if the stream is empty.
         """
-        for i in self:
-            if fun(i):
-                return Nullable(i)
-        return Nullable.empty()
+        for x in self._iterable:
+            return Nullable(x).or_else_throw(SuppliedNoneException)
+        return Nullable(None)
 
     def flat_map(self, mapper: Callable[[T], "Stream[S]"]) -> "Stream[S]":
         """
@@ -84,28 +84,28 @@ class Stream(Generic[T], AbstractBaseStream[T], stream_creators_mixin.StreamCrea
 
     def sum(self) -> T:
         """Returns the sum of all elements in the stream."""
-        return sum(self)
+        return sum(self._iterable)
 
     def min(self) -> T:
         """Returns the min of all elements in the stream."""
-        return min(self)
+        return min(self._iterable)
 
     def max(self) -> T:
         """Returns the max of all elements in the stream."""
-        return max(self)
+        return max(self._iterable)
 
     def average(self) -> float:
         """Returns the average of all elements in the stream."""
         s: float = 0
         length: int = 0
-        for i in self:
+        for i in self._iterable:
             s += i
             length += 1
         return s / length if length != 0 else 0
 
     def take(self, number: int) -> "Stream[T]":
         """Limit the stream to a specific number of items."""
-        return Stream(itertools.islice(self, number))
+        return Stream(itertools.islice(self._iterable, number))
 
     def first(self) -> Nullable[T]:
         """
