@@ -1,9 +1,8 @@
 import unittest
 from unittest.mock import MagicMock
 
-from pystream.stream import Stream
-from pystream.nullable import Nullable
-from pystream.exceptions import EmptyNullableException
+from pystream.infrastructure.nullable import Nullable
+from pystream.infrastructure.exceptions import EmptyNullableException
 
 ITEM = object()
 

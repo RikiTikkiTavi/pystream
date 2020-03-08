@@ -1,8 +1,8 @@
-from abc import ABC, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
 from typing import Generic, TypeVar, Callable, Any, Iterable
 
 import pystream.interfaces.base_stream_interface as bsi
-import pystream.nullable as nu
+import pystream.infrastructure.nullable as nu
 
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')

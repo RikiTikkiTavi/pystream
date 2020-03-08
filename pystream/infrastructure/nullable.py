@@ -1,7 +1,7 @@
 from typing import TypeVar, Generic, Optional, Callable, Union
 import inspect
 
-from pystream.exceptions import EmptyNullableException
+from pystream.infrastructure.exceptions import EmptyNullableException
 
 T = TypeVar('T')
 S = TypeVar('S')

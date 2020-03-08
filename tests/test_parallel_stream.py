@@ -1,7 +1,7 @@
 import unittest
 from time import sleep
 
-from pystream.collectors import to_collection
+from pystream.infrastructure.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
 from pystream.stream import Stream
 
@@ -30,8 +30,14 @@ class ParallelStreamTest(unittest.TestCase):
     BUMPY_COLLECTION = [[5, 3, 1], [10], [51, 42, 7]]
 
     def test_combined(self):
-        t = ParallelStream(self.COLLECTION).filter(_cpu_filter).map(_cpu_map).collect(to_collection(tuple))
-        correct = Stream(self.COLLECTION).filter(_filter).map(_map).collect(to_collection(tuple))
+        t = ParallelStream(self.COLLECTION)\
+            .filter(_cpu_filter)\
+            .map(_cpu_map)\
+            .collect(to_collection(tuple))
+        correct = Stream(self.COLLECTION)\
+            .filter(_filter)\
+            .map(_map)\
+            .collect(to_collection(tuple))
         self.assertTrue(t == correct)
 
     def test_map(self):

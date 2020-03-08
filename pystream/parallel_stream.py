@@ -3,11 +3,10 @@ from itertools import chain
 from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
 from typing import Generic, TypeVar, Callable, List, Iterable, Tuple
-import pystream.utils as utils
+import pystream.infrastructure.utils as utils
 
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
-G = TypeVar('G')
 
 
 def _filter_partition(element: _AT, predicate: Callable[[_AT], bool]) -> Tuple[_AT, ...]:
@@ -62,8 +61,8 @@ class ParallelStream(Generic[_AT]):
         )))
 
     def __filter_active(self,
-                        predicate: Callable[[_AT], bool],
-                        iterable: Iterable[_AT],
+                        iterable: Iterable[_AT], /,
+                        predicate: Callable[[_AT], bool]
                         ) -> Iterable[_AT]:
         return iter(utils.lazy_flat_generator(self.__pool.map(
             partial(_filter_partition, predicate=predicate),

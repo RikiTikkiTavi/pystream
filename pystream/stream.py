@@ -1,11 +1,9 @@
 from functools import reduce
-from itertools import chain
-from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Optional, Iterator, List
+from itertools import chain, islice, count
+from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Iterator, List
 
-from pystream.exceptions import SuppliedNoneException
-import pystream.nullable as nullable
+import pystream.infrastructure.nullable as nullable
 import pystream.interfaces.stream_interface as stream_interface
-import pystream.collectors
 
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
@@ -31,9 +29,9 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
         return iter(self.__iterable)
 
     def partition_iterator(self, partition_size: int) -> Iterator[List[_AT]]:
-        it: Iterator[T] = iter(tuple(self.__iterable))
+        it: Iterator[_AT] = iter(tuple(self.__iterable))
         while True:
-            partition: List[T, ...] = list(islice(it, partition_length))
+            partition: List[_AT] = list(islice(it, partition_size))
             if len(partition) > 0:
                 yield partition
             else:
@@ -81,7 +79,8 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
         """
         When iterating over lists, flattens the stream by concatenating all lists using mapper function.
         """
-        return Stream(itertools.chain(*map(mapper, self.__iterable)))
+        # TODO: lazy chaining!
+        return Stream(chain(*map(mapper, self.__iterable)))
 
     def count(self) -> int:
         """
@@ -112,7 +111,7 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
 
     def limit(self, number: int) -> "Stream[_AT]":
         """Limit the stream to a specific number of items."""
-        return Stream(itertools.islice(self.__iterable, number))
+        return Stream(islice(self.__iterable, number))
 
     def find_first(self) -> nullable.Nullable[_AT]:
         """
@@ -142,7 +141,7 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
         Otherwise, an infinite stream is created, starting at 0.
         """
         if len(args) == 0:
-            return Stream(itertools.count())
+            return Stream(count())
         else:
             return Stream(range(*args))
 
