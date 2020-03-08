@@ -20,3 +20,12 @@ def lazy_flat_generator(iterable: Iterable[Iterable[T]]) -> Generator[T, None, N
     for i in iterable:
         for j in i:
             yield j
+
+
+def reduction_pairs_generator(iterable: Iterable[T]) -> Generator[Tuple[T, ...], None, None]:
+    it = iter(iterable)
+    while True:
+        pair: Tuple[T, ...] = tuple(islice(it, 2))
+        if len(pair) == 0:
+            break
+        yield pair

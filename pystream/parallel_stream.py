@@ -13,6 +13,10 @@ def _filter_partition(element: _AT, predicate: Callable[[_AT], bool]) -> Tuple[_
     return [element] if predicate(element) else []
 
 
+def _reducer(pair: Tuple[_AT, ...], /, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
+    return reducer(*pair) if len(pair) == 2 else pair[0]
+
+
 class ParallelStream(Generic[_AT]):
     __n_processes: int
     __scheduled: List[Callable]
@@ -76,8 +80,23 @@ class ParallelStream(Generic[_AT]):
             self.__scheduled.append(partial(self.__filter_active, predicate=predicate))
         return self
 
+    def __reduce(self, iterable: Iterable[_AT], /, reducer: Callable[[_RT, _AT], _RT]):
+        while True:
+            pairs: Generator[Tuple[_AT, ...], None, None] = utils.reduction_pairs_generator(iterable)
+            iterable = self.__pool.map(
+                func=partial(_reducer, reducer=reducer),
+                iterable=pairs
+            )
+            if len(iterable) == 1:
+                return iterable[0]
+
+    def reduce(self, start_value: _AT, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
+        with Pool(processes=self.__n_processes) as self.__pool:
+            return self.__reduce(self.__collect(), reducer)
+
+    def __collect(self):
+        return reduce(lambda seq, fun: fun(seq), self.__scheduled, self.__iterable)
+
     def collect(self, collector: 'Collector[_AT, _RT]') -> _RT:
         with Pool(processes=self.__n_processes) as self.__pool:
-            return collector.collect(
-                reduce(lambda seq, fun: fun(seq), self.__scheduled, self.__iterable)
-            )
+            return collector.collect(self.__collect())
