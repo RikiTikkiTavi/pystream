@@ -1,8 +1,7 @@
 import unittest
-from multiprocessing.pool import Pool
 from time import sleep
 
-from pystream.collectors.single_thread import to_collection
+from pystream.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
 from pystream.stream import Stream
 
@@ -32,12 +31,12 @@ class ParallelStreamTest(unittest.TestCase):
 
     def test_combined(self):
         t = ParallelStream(self.COLLECTION).filter(_cpu_filter).map(_cpu_map).collect(to_collection(tuple))
-        correct = Stream(self.COLLECTION).filter(_cpu_filter).map(_cpu_map).collect(to_collection(tuple))
+        correct = Stream(self.COLLECTION).filter(_filter).map(_map).collect(to_collection(tuple))
         self.assertTrue(t == correct)
 
     def test_map(self):
-        t = ParallelStream(self.COLLECTION*3).map(_cpu_map).collect(to_collection(tuple))
-        correct = Stream(self.COLLECTION*3).map(_map).collect(to_collection(tuple))
+        t = ParallelStream(self.COLLECTION).map(_cpu_map).collect(to_collection(tuple))
+        correct = Stream(self.COLLECTION).map(_map).collect(to_collection(tuple))
         self.assertTrue(t == correct)
 
     def test_filter(self):

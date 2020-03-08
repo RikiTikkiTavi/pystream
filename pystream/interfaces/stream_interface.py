@@ -1,5 +1,5 @@
-from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, Callable, Any
+from abc import ABC, abstractmethod, abstractstaticmethod
+from typing import Generic, TypeVar, Callable, Any, Iterable
 
 import pystream.interfaces.base_stream_interface as bsi
 import pystream.nullable as nu
@@ -8,12 +8,10 @@ _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
 
 
-class StreamInterface(Generic[_AT], ABC, bsi.BaseStreamInterface[_AT]):
-    _Predicate = Callable[[_AT], bool]
-    _Action = Callable[[_AT], Any]
+class StreamInterface(Generic[_AT], bsi.BaseStreamInterface[_AT], ABC):
 
     @abstractmethod
-    def filter(self, predicate: _Predicate) -> 'StreamInterface[_AT]':
+    def filter(self, predicate: Callable[[_AT], bool]) -> 'StreamInterface[_AT]':
         """
         Returns a stream consisting of the elements of this stream that match the given predicate.
         """
@@ -25,26 +23,18 @@ class StreamInterface(Generic[_AT], ABC, bsi.BaseStreamInterface[_AT]):
         ...
 
     @abstractmethod
-    def all_match(self, predicate: _Predicate) -> bool:
+    def all_match(self, predicate: Callable[[_AT], bool]) -> bool:
         """Returns whether all elements of this stream match the provided predicate."""
         ...
 
     @abstractmethod
-    def any_match(self, predicate: _Predicate) -> bool:
+    def any_match(self, predicate: Callable[[_AT], bool]) -> bool:
         """Returns whether any elements of this stream match the provided predicate."""
         ...
 
     @abstractmethod
     def count(self) -> int:
         """Returns the count of elements in this stream."""
-        ...
-
-    @abstractmethod
-    def distinct(self) -> 'StreamInterface[_AT]':
-        """
-        Returns a stream consisting of the distinct elements
-        (according to Object == Object) of this stream.
-        """
         ...
 
     @abstractmethod
@@ -70,7 +60,7 @@ class StreamInterface(Generic[_AT], ABC, bsi.BaseStreamInterface[_AT]):
         ...
 
     @abstractmethod
-    def for_each(self, action: _Action) -> None:
+    def for_each(self, action: Callable[[_AT], Any]) -> None:
         """
         Performs an action for each element of this stream.
         This is terminal operation.
@@ -78,7 +68,7 @@ class StreamInterface(Generic[_AT], ABC, bsi.BaseStreamInterface[_AT]):
         ...
 
     @abstractmethod
-    def peek(self, action: _Action) -> 'StreamInterface[_AT]':
+    def peek(self, action: Callable[[_AT], Any]) -> 'StreamInterface[_AT]':
         """
         Returns a stream consisting of the elements of this stream, additionally performing the provided action
         on each element as elements are consumed from the resulting stream.
@@ -89,14 +79,6 @@ class StreamInterface(Generic[_AT], ABC, bsi.BaseStreamInterface[_AT]):
     def limit(self, max_size: int) -> 'StreamInterface[_AT]':
         """
         Returns a stream consisting of the elements of this stream, truncated to be no longer than maxSize in length.
-        """
-        ...
-
-    @abstractmethod
-    def skip(self, n: int) -> 'StreamInterface[_AT]':
-        """
-        Returns a stream consisting of the remaining elements of this stream after
-        discarding the first n elements of the stream.
         """
         ...
 
@@ -117,13 +99,6 @@ class StreamInterface(Generic[_AT], ABC, bsi.BaseStreamInterface[_AT]):
         ...
 
     @abstractmethod
-    def sorted(self, reversed: bool = False) -> 'StreamInterface[_AT]':
-        """
-        Returns a stream consisting of the elements of this stream, sorted according to natural order.
-        """
-        ...
-
-    @abstractmethod
     def reduce(self, start_value: _RT, accumulator: Callable[[_RT, _AT], _RT]) -> _RT:
         """
         Performs a reduction on the elements of this stream,
@@ -131,8 +106,24 @@ class StreamInterface(Generic[_AT], ABC, bsi.BaseStreamInterface[_AT]):
         """
         ...
 
+    @abstractmethod
     def collect(self, collector):
         """
         TODO: docs, types
         """
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def of(*elements: _AT) -> 'StreamInterface[_AT]':
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def range(*elements: int) -> 'StreamInterface[int]':
+        ...
+
+    @staticmethod
+    @abstractmethod
+    def zip(*iterables: Iterable[_AT]) -> "StreamInterface[_AT]":
         ...
