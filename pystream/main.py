@@ -25,11 +25,21 @@ iterable = tuple(range(100, 150))
 
 
 def parallel(iterable):
-    p = ParallelStream(iterable).reduce(0, _reducer)
+    return ParallelStream(iterable) \
+        .map(_cpu_map) \
+        .filter(_cpu_filter) \
+        .sequential() \
+        .all_match(_cpu_filter)
 
 
 def sequential(iterable):
-    s = Stream(iterable).reduce(0, _reducer)
+    return Stream(iterable) \
+        .parallel()\
+        .map(_cpu_map) \
+        .filter(_cpu_filter) \
+        .sequential() \
+        .all_match(_cpu_filter)
 
-parallel(iterable)
-sequential(iterable)
+
+print(parallel(iterable))
+print(sequential(iterable))

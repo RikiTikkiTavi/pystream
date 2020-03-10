@@ -4,12 +4,14 @@ from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
 from typing import Generic, TypeVar, Callable, List, Iterable, Tuple
 import pystream.infrastructure.utils as utils
+import pystream.stream as stream
+from itertools import islice
 
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
 
 
-def _filter_partition(element: _AT, predicate: Callable[[_AT], bool]) -> Tuple[_AT, ...]:
+def _filter_partition(element: _AT, predicate: Callable[[_AT], bool]) -> List[_AT]:
     return [element] if predicate(element) else []
 
 
@@ -24,6 +26,8 @@ class ParallelStream(Generic[_AT]):
     __iterable: Iterable[_AT]
 
     def __init__(self, *iterables: Iterable[_AT], n_processes: int = cpu_count()):
+        print(iterables)
+        print(tuple(chain(*iterables)))
         self.__iterable = chain(*iterables)
         self.__n_processes = n_processes
         self.__scheduled = []
@@ -80,15 +84,16 @@ class ParallelStream(Generic[_AT]):
             self.__scheduled.append(partial(self.__filter_active, predicate=predicate))
         return self
 
-    def __reduce(self, iterable: Iterable[_AT], /, reducer: Callable[[_RT, _AT], _RT]):
+    def __reduce(self, iterable: Iterable[_AT], /, reducer: Callable[[_RT, _AT], _RT], chunk_size: int = 1):
         while True:
-            pairs: Generator[Tuple[_AT, ...], None, None] = utils.reduction_pairs_generator(iterable)
-            iterable = self.__pool.map(
+            iterable = self.__pool.imap_unordered(
                 func=partial(_reducer, reducer=reducer),
-                iterable=pairs
+                iterable=utils.reduction_pairs_generator(iterable)
             )
-            if len(iterable) == 1:
-                return iterable[0]
+            first_pair = tuple(islice(iterable, 2))
+            if len(first_pair) == 1:
+                return first_pair[0]
+            iterable = chain(first_pair, iterable)
 
     def reduce(self, start_value: _AT, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
         with Pool(processes=self.__n_processes) as self.__pool:
@@ -97,6 +102,14 @@ class ParallelStream(Generic[_AT]):
     def __collect(self):
         return reduce(lambda seq, fun: fun(seq), self.__scheduled, self.__iterable)
 
+    def sequential(self) -> 'stream.Stream[_AT]':
+        return stream.Stream(self.iterator())
+
     def collect(self, collector: 'Collector[_AT, _RT]') -> _RT:
         with Pool(processes=self.__n_processes) as self.__pool:
             return collector.collect(self.__collect())
+
+    def iterator(self) -> Iterable[_AT]:
+        with Pool(processes=self.__n_processes) as self.__pool:
+            for c in self.__collect():
+                yield c

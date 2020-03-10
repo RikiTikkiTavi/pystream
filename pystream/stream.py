@@ -4,7 +4,8 @@ from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Iterator, L
 
 import pystream.infrastructure.nullable as nullable
 import pystream.interfaces.stream_interface as stream_interface
-
+import pystream.parallel_stream as parallel_stream
+from multiprocessing import cpu_count
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
 
@@ -36,9 +37,6 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
                 yield partition
             else:
                 break
-
-    def parallel(self) -> 'stream_interface.StreamInterface[_AT]':
-        raise NotImplemented
 
     def sequential(self) -> 'stream_interface.StreamInterface[_AT]':
         raise NotImplemented
@@ -132,6 +130,9 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
 
     def collect(self, collector: 'Collector[_AT, _RT]') -> _RT:
         return collector.collect(self)
+
+    def parallel(self, n_processes: int = cpu_count()) -> "parallel_stream.ParallelStream[_AT]":
+        return parallel_stream.ParallelStream(self.__iterable, n_processes)
 
     @staticmethod
     def range(*args) -> "Stream[int]":
