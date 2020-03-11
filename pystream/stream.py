@@ -132,7 +132,7 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
         return collector.collect(self)
 
     def parallel(self, n_processes: int = cpu_count()) -> "parallel_stream.ParallelStream[_AT]":
-        return parallel_stream.ParallelStream(self.__iterable, n_processes)
+        return parallel_stream.ParallelStream(self.__iterable, n_processes=n_processes)
 
     @staticmethod
     def range(*args) -> "Stream[int]":

@@ -56,7 +56,7 @@ class TransitionsTest(unittest.TestCase):
 
     def test_sequentialStream_intermediateOp_parallel_filter_collect(self):
         s = self.stream.map(squared).parallel().filter(DIVIDES_BY_THREE).collect(to_collection(list))
-        c = list(filter(squared, map(squared, self.COLLECTION)))
+        c = list(filter(DIVIDES_BY_THREE, map(squared, self.COLLECTION)))
         self.assertTrue(s == c)
 
     def test_sequentialStream_intermediateOp_parallel_reduce_collect(self):
