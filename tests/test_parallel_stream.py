@@ -10,6 +10,10 @@ def DIVIDES_BY_THREE(x):
     return x % 3 == 0
 
 
+def squared(x):
+    return x ** 2
+
+
 def sum_reducer(acc, el):
     return acc + el
 
@@ -48,6 +52,36 @@ class ParallelStreamTest(unittest.TestCase):
             to_collection(list))
 
         self.assertEqual([1, 4, 9, 16], squares)
+
+    def test_transition_to_sequential_returns_sequential(self):
+        self.assertIsInstance(self.stream.sequential(), Stream)
+
+    def test_transition_filter_sequential_collect(self):
+        s = self.stream.filter(DIVIDES_BY_THREE).sequential().collect(to_collection(list))
+        c = list(filter(DIVIDES_BY_THREE, self.COLLECTION))
+        self.assertTrue(s == c)
+
+    def test_transition_map_sequential_collect(self):
+        s = self.stream.map(squared).sequential().collect(to_collection(list))
+        c = list(map(squared, self.COLLECTION))
+        self.assertTrue(s == c)
+
+    def test_transition_map_sequential_filter_collect(self):
+        s = self.stream.map(squared).sequential().filter(DIVIDES_BY_THREE).collect(to_collection(list))
+        c = list(filter(DIVIDES_BY_THREE, map(squared, self.COLLECTION)))
+        self.assertTrue(s == c)
+
+    def test_sequentialStream_intermediateOp_parallel_collect(self):
+        pass
+
+    def test_sequentialStream_intermediateOp_parallel_map_collect(self):
+        pass
+
+    def test_sequentialStream_intermediateOp_parallel_filter_collect(self):
+        pass
+
+    def test_sequentialStream_intermediateOp_parallel_reduce_collect(self):
+        pass
 
 
 class AClassWithAMethod(object):
