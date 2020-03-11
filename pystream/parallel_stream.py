@@ -27,7 +27,6 @@ class ParallelStream(Generic[_AT]):
 
     def __init__(self, *iterables: Iterable[_AT], n_processes: int = cpu_count()):
         print(iterables)
-        print(tuple(chain(*iterables)))
         self.__iterable = chain(*iterables)
         self.__n_processes = n_processes
         self.__scheduled = []

@@ -71,7 +71,7 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
 
     def none_match(self, predicate: Callable[[_AT], bool]) -> bool:
         """Returns True if no element of the stream matches the criteria."""
-        return not self.any(predicate)
+        return not self.any_match(predicate)
 
     def flat_map(self, mapper: Callable[[_AT], "Stream[_RT]"]) -> "Stream[_RT]":
         """

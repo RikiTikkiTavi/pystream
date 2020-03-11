@@ -1,5 +1,7 @@
 import unittest
 
+from pystream.infrastructure.collectors import to_collection
+from pystream.parallel_stream import ParallelStream
 from pystream.stream import Stream
 
 
@@ -14,49 +16,49 @@ class StreamTest(unittest.TestCase):
     def test_whenMapping_thenReturnFunctionAppliedToAllElements(self):
         expected = [x for x in map(StreamTest.DIVIDES_BY_THREE, self.COLLECTION)]
 
-        result = self.stream.map(StreamTest.DIVIDES_BY_THREE).toList()
+        result = self.stream.map(StreamTest.DIVIDES_BY_THREE).collect(to_collection(list))
 
         self.assertEqual(expected, result)
 
     def test_whenFiltering_thenReturnElementsWhichEvaluateToTrue(self):
         expected = [x for x in filter(StreamTest.DIVIDES_BY_THREE, self.COLLECTION)]
 
-        result = self.stream.filter(StreamTest.DIVIDES_BY_THREE).toList()
+        result = self.stream.filter(StreamTest.DIVIDES_BY_THREE).collect(to_collection(list))
 
         self.assertEqual(expected, result)
 
     def test_givenAnElementThatMatches_whenCheckingAnyMatch_thenReturnTrue(self):
-        result = self.stream.any(StreamTest.DIVIDES_BY_THREE)
+        result = self.stream.any_match(StreamTest.DIVIDES_BY_THREE)
 
         self.assertTrue(result)
 
     def test_givenNotAllElementsMatch_whenCheckingAllMatch_thenReturnFalse(self):
-        result = self.stream.all(StreamTest.DIVIDES_BY_THREE)
+        result = self.stream.all_match(StreamTest.DIVIDES_BY_THREE)
 
         self.assertFalse(result)
 
     def test_givenAllMatchingElements_whenCheckingAllMatch_thenReturnTrue(self):
         always_true = lambda x: True
 
-        result = self.stream.all(always_true)
+        result = self.stream.all_match(always_true)
 
         self.assertTrue(result)
 
     def test_givenNoMatchingElements_whenCheckingAnyMatch_thenReturnFalse(self):
         always_false = lambda x: False
 
-        result = self.stream.any(always_false)
+        result = self.stream.any_match(always_false)
 
         self.assertFalse(result)
 
     def test_whenCollectingToList_thenReturnAListContainingAllElements(self):
-        result_list = self.stream.toList()
+        result_list = self.stream.collect(to_collection(list))
 
         self.assertIsInstance(result_list, list)
         self.assertEqual(self.COLLECTION, result_list)
 
     def test_whenCollectingToSet_thenReturnASetContainingAllElements(self):
-        result_set = self.stream.toSet()
+        result_set = self.stream.collect(to_collection(set))
 
         self.assertEqual(len(self.COLLECTION), len(result_set))
         self.assertIsInstance(result_set, set)
@@ -64,7 +66,7 @@ class StreamTest(unittest.TestCase):
             self.assertTrue(item in result_set)
 
     def test_givenAListOfPairs_whenCollectingToDict_thenExpandPairsToKeyValue(self):
-        dictionary = self.stream.map(lambda x: (x, StreamTest.DIVIDES_BY_THREE(x))).toDict()
+        dictionary = self.stream.map(lambda x: (x, StreamTest.DIVIDES_BY_THREE(x))).collect(to_collection(dict))
 
         self.assertEqual(len(self.COLLECTION), len(dictionary.keys()))
         self.assertIsInstance(dictionary, dict)
@@ -79,62 +81,38 @@ class StreamTest(unittest.TestCase):
 
         self.assertEqual(self.COLLECTION, result)
 
-    def test_givenCollectionOfTuples_whenForEach_thenExpandTuplesWhenCallingFunction(self):
-        result = []
-        self.stream = Stream([(1, -1), (2, -2)])
-        add_sum_to_list = lambda x, y: result.append(x + y)
-
-        self.stream.for_each(add_sum_to_list)
-
-        self.assertEqual([0, 0], result)
-
-    def test_givenFunctionWithTwoParameters_whenMapping_thenExpandTuplesWhenCallingFunction(self):
-        result = self.stream.map(lambda x: (x, x)).map(lambda x, y: x - y).toList()
-
-        self.assertEqual([0 for i in self.COLLECTION], result)
-
-    def test_givenFunctionWithTwoParameters_whenFiltering_thenExpandTuplesWhenCallingFunction(self):
-        result = self.stream.map(lambda x: (x, x)).filter(lambda x, y: x == y).toList()
-
-        self.assertEqual([(i, i) for i in self.COLLECTION], result)
-
-    def test_givenFunctionWithTwoParameters_whenFindingFirstMatch_thenExpandTuplesWhenCallingFunction(self):
-        result = self.stream.map(lambda x: (x, x)).find_first(lambda x, y: x == y)
-
-        self.assertEqual((self.COLLECTION[0], self.COLLECTION[0]), result.get())
-
     def test_givenFunctionWithTwoParameters_whenIteratingOverScalars_thenThrowTypeError(self):
         with self.assertRaises(TypeError):
-            self.stream.map(lambda x, y: x + y).toList()
+            self.stream.map(lambda x, y: x + y).collect(to_collection(list))
 
     def test_givenStreamOfLists_whenFlattening_thenReturnStreamOfConcatenatedLists(self):
-        result = Stream(self.BUMPY_COLLECTION).flat_map().toList()
+        result = Stream(self.BUMPY_COLLECTION).flat_map(Stream).collect(to_collection(list))
 
         self.assertEqual(self.COLLECTION, result)
 
     def test_givenNoMatchingElements_whenCheckingNoneMatch_thenReturnTrue(self):
         always_false = lambda x: False
 
-        result = Stream(self.COLLECTION).none(always_false)
+        result = Stream(self.COLLECTION).none_match(always_false)
 
         self.assertTrue(result)
 
     def test_givenMatchingElements_whenCheckingNoneMatch_thenReturnFalse(self):
         sometimes_true = lambda x: x % 2 == 0
 
-        result = Stream(self.COLLECTION).none(sometimes_true)
+        result = Stream(self.COLLECTION).none_match(sometimes_true)
 
         self.assertFalse(result)
 
     def test_givenMultipleIterables_whenCreatingStream_thenIterablesAreConcatenated(self):
-        result = Stream(self.BUMPY_COLLECTION, self.COLLECTION).toList()
+        result = Stream(self.BUMPY_COLLECTION, self.COLLECTION).collect(to_collection(list))
 
         self.assertEqual(self.BUMPY_COLLECTION + self.COLLECTION, result)
 
     def test_whenZipping_thenIterateOverTheCollectionsTwoByTwo(self):
         expected = [(1, 4), (2, 5), (3, 6)]
 
-        result = Stream.zip([1, 2, 3], [4, 5, 6]).toList()
+        result = Stream.zip([1, 2, 3], [4, 5, 6]).collect(to_collection(list))
 
         self.assertEqual(expected, result)
 
@@ -147,12 +125,12 @@ class StreamTest(unittest.TestCase):
         self.assertEqual(expected[1], second_list)
 
     def test_whenCreatingFromNonIterableElements_thenCreateACollectionContainingAllParameters(self):
-        result = Stream.of(1, 2, 3, 4).toList()
+        result = Stream.of(1, 2, 3, 4).collect(to_collection(list))
 
         self.assertEqual([1, 2, 3, 4], result)
 
     def test_whenCollectingToTuple_thenReturnATupleContainingTheCollection(self):
-        result = Stream([1, 2, 3, 4, 5]).toTuple()
+        result = Stream([1, 2, 3, 4, 5]).collect(to_collection(tuple))
 
         self.assertIsInstance(result, tuple)
         self.assertEqual((1, 2, 3, 4, 5), result)
@@ -192,62 +170,50 @@ class StreamTest(unittest.TestCase):
         self.assertEqual(sum(self.COLLECTION), reduction)
 
     def test_whenTaking_thenReturnStreamWithOnlyFirstElements(self):
-        first_elements = Stream(range(0, 30)).take(5).toList()
+        first_elements = Stream(range(0, 30)).limit(5).collect(to_collection(list))
 
         self.assertEqual([0, 1, 2, 3, 4], first_elements)
 
     def test_givenClassReference_whenMapping_thenCallClassConstructor(self):
-        squares = Stream.of(1, 2, 3, 4).map(AClassWithAMethod).map(AClassWithAMethod.get_square).toList()
+        squares = Stream.of(1, 2, 3, 4).map(AClassWithAMethod).map(AClassWithAMethod.get_square).collect(
+            to_collection(list))
 
         self.assertEqual([1, 4, 9, 16], squares)
 
     def test_givenMethodWhichRequiresAParameter_whenMapping_thenInvokeMethodWithParameter(self):
         calculator_object = AClassWithAMethod(0)
 
-        result = Stream.of(1, 2, 3, 4).map(calculator_object.increment).toList()
+        result = Stream.of(1, 2, 3, 4).map(calculator_object.increment).collect(to_collection(list))
 
         self.assertEqual([1, 2, 3, 4], result)
 
-    def test_givenMethodWhichRequiresTwoParameters_whenMapping_thenInvokeAndExpandParameters(self):
-        calculator_object = AClassWithAMethod(0)
-
-        result = Stream.zip([1, 2, 3, 4], [1, 2, 3, 4]).map(calculator_object.sum_of_two_values).toList()
-
-        self.assertEqual([2, 4, 6, 8], result)
-
-    def test_givenBuiltinFunction_whenMapping_thenCorrectlyExpandParametersAndDoNotCrash(self):
-        expected = Stream(range(0, 4)).map(lambda x: ord(str(x))).toList()
-        result = Stream.of("0", "1", "2", "3").map(ord).toList()
-
-        self.assertEqual(expected, result)
-
     def test_givenBuiltinType_whenMapping_thenCallConstructorWithASingleParameter(self):
-        result = Stream.of("1", "2", "3").map(int).toList()
+        result = Stream.of("1", "2", "3").map(int).collect(to_collection(list))
 
         self.assertEqual([1, 2, 3], result)
 
     def test_givenMissingParameters_whenGettingRange_thenReturnInfiniteIterator(self):
-        first_25 = Stream.range().take(25).toList()
+        first_25 = Stream.range().limit(25).collect(to_collection(list))
 
         self.assertEqual([x for x in range(0, 25)], first_25)
 
     def test_givenParameters_whenGettingRange_thenPassParametersToBuiltinRange(self):
-        first5 = Stream.range(5).toList()
+        first5 = Stream.range(5).collect(to_collection(list))
 
         self.assertEqual([x for x in range(0, 5)], first5)
 
     def test_whenGettingFirst_thenReturnNullableContainingFirstElementInIterable(self):
-        first = Stream.range().first().get()
+        first = Stream.range().find_first().get()
 
         self.assertEqual(0, first)
 
     def test_givenEmptyStream_whenGettingFirst_thenReturnEmptyNullable(self):
-        first = Stream([]).first()
+        first = Stream([]).find_first()
 
         self.assertFalse(first.is_present())
 
-    def test_map_overloading(self):
-        stream = Stream.of("1", "2", "3").map(int).for_each(print)
+    def test_transition_to_parallel_returns_parallel(self):
+        self.assertIsInstance(self.stream.parallel(), ParallelStream)
 
 
 class AClassWithAMethod(object):

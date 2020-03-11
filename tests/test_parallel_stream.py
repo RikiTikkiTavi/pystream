@@ -6,50 +6,48 @@ from pystream.parallel_stream import ParallelStream
 from pystream.stream import Stream
 
 
-def _cpu_map(x):
-    sleep(0.1)
-    return x ** 2
+def DIVIDES_BY_THREE(x):
+    return x % 3 == 0
 
 
-def _cpu_filter(x):
-    sleep(0.1)
-    return x % 2 == 0
-
-
-def _filter(x):
-    return x % 2 == 0
-
-
-def _map(x):
-    return x ** 2
+def sum_reducer(acc, el):
+    return acc + el
 
 
 class ParallelStreamTest(unittest.TestCase):
     COLLECTION = [5, 3, 1, 10, 51, 42, 7]
-    DIVIDES_BY_THREE = lambda x: x % 3 == 0
-    BUMPY_COLLECTION = [[5, 3, 1], [10], [51, 42, 7]]
 
-    def test_combined(self):
-        t = ParallelStream(self.COLLECTION)\
-            .filter(_cpu_filter)\
-            .map(_cpu_map)\
-            .collect(to_collection(tuple))
-        correct = Stream(self.COLLECTION)\
-            .filter(_filter)\
-            .map(_map)\
-            .collect(to_collection(tuple))
-        self.assertTrue(t == correct)
+    def setUp(self):
+        self.stream = ParallelStream(self.COLLECTION)
 
-    def test_map(self):
-        t = ParallelStream(self.COLLECTION).map(_cpu_map).collect(to_collection(tuple))
-        correct = Stream(self.COLLECTION).map(_map).collect(to_collection(tuple))
-        self.assertTrue(t == correct)
+    def test_whenMapping_thenReturnFunctionAppliedToAllElements(self):
+        expected = [x for x in map(DIVIDES_BY_THREE, self.COLLECTION)]
 
-    def test_filter(self):
-        t = ParallelStream(self.COLLECTION).filter(_cpu_filter).collect(to_collection(tuple))
-        correct = Stream(self.COLLECTION).filter(_filter).collect(to_collection(tuple))
+        result = self.stream.map(DIVIDES_BY_THREE).collect(to_collection(list))
 
-        self.assertTrue(t == correct)
+        self.assertEqual(expected, result)
+
+    def test_whenFiltering_thenReturnElementsWhichEvaluateToTrue(self):
+        expected = [x for x in filter(DIVIDES_BY_THREE, self.COLLECTION)]
+
+        result = self.stream.filter(DIVIDES_BY_THREE).collect(to_collection(list))
+
+        self.assertEqual(expected, result)
+
+    def test_whenReducing_thenReturnFinalValueOfAccumulator(self):
+        reduction = self.stream.reduce(0, sum_reducer)
+
+        self.assertEqual(sum(self.COLLECTION), reduction)
+
+    def test_givenFunctionWithTwoParameters_whenIteratingOverScalars_thenThrowTypeError(self):
+        with self.assertRaises(TypeError):
+            self.stream.map(sum_reducer).collect(to_collection(list))
+
+    def test_givenClassReference_whenMapping_thenCallClassConstructor(self):
+        squares = Stream.of(1, 2, 3, 4).map(AClassWithAMethod).map(AClassWithAMethod.get_square).collect(
+            to_collection(list))
+
+        self.assertEqual([1, 4, 9, 16], squares)
 
 
 class AClassWithAMethod(object):
