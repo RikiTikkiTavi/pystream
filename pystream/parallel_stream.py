@@ -1,11 +1,11 @@
 from functools import partial, reduce
-from itertools import chain
+from itertools import chain, islice
 from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
 from typing import Generic, TypeVar, Callable, List, Iterable, Tuple
 import pystream.infrastructure.utils as utils
 import pystream.stream as stream
-from itertools import islice
+import operator
 
 import pystream.backends.parallel_stream as parallel_back
 
@@ -21,6 +21,10 @@ def _filter_partition(element: _AT, predicate: Callable[[_AT], bool]) -> List[_A
 
 def _reducer(pair: Tuple[_AT, ...], /, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
     return reducer(*pair) if len(pair) == 2 else pair[0]
+
+
+def _order_reducer(*args: Tuple[_AT, ...], selector: Callable[[Tuple[_AT, ...]], _AT]) -> _AT:
+    return selector(args)
 
 
 class ParallelStream(Generic[_AT]):
@@ -152,6 +156,12 @@ class ParallelStream(Generic[_AT]):
     ) -> _AT:
         with Pool(processes=self.__n_processes) as self.__pool:
             return self.__reduce_lazy(self.__pipe.to_iterable(self.__iterable), reducer)
+
+    def max(self):
+        return self.reduce(partial(_order_reducer, selector=max))
+
+    def min(self):
+        return self.reduce(partial(_order_reducer, selector=min))
 
     def iterator(self) -> Iterable[_AT]:
         with Pool(processes=self.__n_processes) as self.__pool:

@@ -56,6 +56,12 @@ class ParallelStreamTest(unittest.TestCase):
     def test_transition_to_sequential_returns_sequential(self):
         self.assertIsInstance(self.stream.sequential(), Stream)
 
+    def test_max(self):
+        self.assertTrue(self.stream.max() == max(self.COLLECTION))
+
+    def test_min(self):
+        self.assertTrue(self.stream.min() == min(self.COLLECTION))
+
 
 class AClassWithAMethod(object):
 
