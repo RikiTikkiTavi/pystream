@@ -57,10 +57,14 @@ class ParallelStreamTest(unittest.TestCase):
         self.assertIsInstance(self.stream.sequential(), Stream)
 
     def test_max(self):
-        self.assertTrue(self.stream.max() == max(self.COLLECTION))
+        self.assertEqual(self.stream.max(), max(self.COLLECTION))
 
     def test_min(self):
-        self.assertTrue(self.stream.min() == min(self.COLLECTION))
+        self.assertEqual(self.stream.min(), min(self.COLLECTION))
+
+    def test_peek(self):
+        s = self.stream.map(squared).peek(print).collect(to_collection(tuple))
+        self.assertTupleEqual(s, tuple(map(squared, self.COLLECTION)))
 
 
 class AClassWithAMethod(object):

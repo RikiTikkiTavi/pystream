@@ -1,8 +1,8 @@
 from functools import partial, reduce
-from itertools import chain, islice
+from itertools import chain, islice, tee
 from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
-from typing import Generic, TypeVar, Callable, List, Iterable, Tuple
+from typing import Generic, TypeVar, Callable, List, Iterable, Tuple, Any
 import pystream.infrastructure.utils as utils
 import pystream.stream as stream
 import operator
@@ -25,6 +25,11 @@ def _reducer(pair: Tuple[_AT, ...], /, reducer: Callable[[_AT, _AT], _AT]) -> _A
 
 def _order_reducer(*args: Tuple[_AT, ...], selector: Callable[[Tuple[_AT, ...]], _AT]) -> _AT:
     return selector(args)
+
+
+def _with_action(x: _AT, action: Callable[[_AT], Any]):
+    action(x)
+    return x
 
 
 class ParallelStream(Generic[_AT]):
@@ -150,10 +155,7 @@ class ParallelStream(Generic[_AT]):
             self.__schedule(partial(self.__filter_active, predicate=predicate))
         return self
 
-    def reduce(
-            self,
-            reducer: Callable[[_AT, _AT], _AT]
-    ) -> _AT:
+    def reduce(self, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
         with Pool(processes=self.__n_processes) as self.__pool:
             return self.__reduce_lazy(self.__pipe.to_iterable(self.__iterable), reducer)
 
@@ -162,6 +164,13 @@ class ParallelStream(Generic[_AT]):
 
     def min(self):
         return self.reduce(partial(_order_reducer, selector=min))
+
+    def for_each(self, action: Callable[[_AT], Any], lazy: bool = True, chunk_size: int = 1) -> None:
+        with Pool(processes=self.__n_processes) as self.__pool:
+            for i in self.map(action, lazy, chunk_size).iterator(): pass
+
+    def peek(self, action: Callable[[_AT], Any], lazy: bool = True, chunk_size: int = 1) -> "ParallelStream[_AT]":
+        return self.map(mapper=partial(_with_action, action=action), lazy=lazy, chunk_size=chunk_size)
 
     def iterator(self) -> Iterable[_AT]:
         with Pool(processes=self.__n_processes) as self.__pool:
