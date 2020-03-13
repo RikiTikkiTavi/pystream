@@ -7,6 +7,10 @@ import pystream.infrastructure.utils as utils
 import pystream.stream as stream
 from itertools import islice
 
+import pystream.backends.parallel_stream as parallel_back
+
+import pystream.infrastructure.pipe as pipe
+
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
 
@@ -21,93 +25,142 @@ def _reducer(pair: Tuple[_AT, ...], /, reducer: Callable[[_AT, _AT], _AT]) -> _A
 
 class ParallelStream(Generic[_AT]):
     __n_processes: int
-    __scheduled: List[Callable]
+    __pipe: pipe.Pipe
     __pool: Pool
     __iterable: Iterable[_AT]
 
     def __init__(self, *iterables: Iterable[_AT], n_processes: int = cpu_count()):
         self.__iterable = chain(*iterables)
         self.__n_processes = n_processes
-        self.__scheduled = []
+        self.__pipe = pipe.Pipe()
 
-    def __map_lazy(self, iterable: Iterable[_AT], /, mapper: Callable[[_AT], _RT], chunk_size: int) -> Iterable[_RT]:
+    # ------------------------------------------------------------------------------
+    # Backends
+    # ------------------------------------------------------------------------------
+
+    def __schedule(self, op: Callable, **op_kwargs):
+        self.__pipe.append(partial(op, **op_kwargs))
+
+    def __map_lazy(
+            self,
+            iterable: Iterable[_AT],
+            /,
+            mapper: Callable[[_AT], _RT],
+            chunk_size: int
+    ) -> Iterable[_RT]:
+        """
+        Lazy map implementation
+        """
         return self.__pool.imap(
             mapper,
             iterable,
             chunksize=chunk_size
         )
 
-    def __map_active(self, iterable: Iterable[_AT], /, mapper: Callable[[_AT], _RT]) -> \
-            Iterable[_RT]:
+    def __map_active(
+            self,
+            iterable: Iterable[_AT],
+            /,
+            mapper: Callable[[_AT], _RT]
+    ) -> Iterable[_RT]:
+        """
+        Active map implementation
+        """
         return self.__pool.map(
             mapper,
             iterable
         )
 
-    def map(self,
-            mapper: Callable[[_AT], _RT],
-            lazy: bool = True,
+    def __filter_lazy(
+            self,
+            iterable: Iterable[_AT], /,
+            predicate: Callable[[_AT], bool],
             chunk_size: int = 1
-            ) -> 'ParallelStream[_RT]':
-        if lazy:
-            self.__scheduled.append(partial(self.__map_lazy, mapper=mapper, chunk_size=chunk_size))
-        else:
-            self.__scheduled.append(partial(self.__map_active, mapper=mapper))
-        return self
-
-    def __filter_lazy(self,
-                      iterable: Iterable[_AT], /,
-                      predicate: Callable[[_AT], bool],
-                      chunk_size: int = 1
-                      ) -> Iterable[_AT]:
-        return iter(utils.lazy_flat_generator(self.__pool.imap(
+    ) -> Iterable[_AT]:
+        """
+        Lazy filter implementation
+        """
+        return utils.lazy_flat_generator(self.__pool.imap(
             partial(_filter_partition, predicate=predicate),
             iterable,
             chunksize=chunk_size
-        )))
+        ))
 
-    def __filter_active(self,
-                        iterable: Iterable[_AT], /,
-                        predicate: Callable[[_AT], bool]
-                        ) -> Iterable[_AT]:
-        return iter(utils.lazy_flat_generator(self.__pool.map(
+    def __filter_active(
+            self,
+            iterable: Iterable[_AT], /,
+            predicate: Callable[[_AT], bool]
+    ) -> Iterable[_AT]:
+        """
+        Active filter implementation
+        """
+        return utils.lazy_flat_generator(self.__pool.map(
             partial(_filter_partition, predicate=predicate),
             iterable
-        )))
+        ))
 
-    def filter(self, predicate: Callable[[_AT], bool], lazy: bool = True, chunk_size: int = 1) -> 'ParallelStream[_AT]':
-        if lazy:
-            self.__scheduled.append(partial(self.__filter_lazy, predicate=predicate, chunk_size=chunk_size))
-        else:
-            self.__scheduled.append(partial(self.__filter_active, predicate=predicate))
-        return self
-
-    def __reduce(self, iterable: Iterable[_AT], /, reducer: Callable[[_RT, _AT], _RT], chunk_size: int = 1):
+    def __reduce_lazy(
+            self,
+            iterable: Iterable[_AT],
+            /,
+            reducer: Callable[[_AT, _AT], _AT],
+            chunk_size: int = 1
+    ) -> _AT:
+        """
+        Lazy reduce implementation
+        """
         while True:
             iterable = self.__pool.imap_unordered(
                 func=partial(_reducer, reducer=reducer),
                 iterable=utils.reduction_pairs_generator(iterable)
             )
             first_pair = tuple(islice(iterable, 2))
-            if len(first_pair) == 1:
-                return first_pair[0]
+            if len(first_pair) == 1: return first_pair[0]
             iterable = chain(first_pair, iterable)
 
-    def reduce(self, start_value: _AT, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
-        with Pool(processes=self.__n_processes) as self.__pool:
-            return self.__reduce(self.__collect(), reducer)
+    # ------------------------------------------------------------------------------
+    # Frontends
+    # ------------------------------------------------------------------------------
 
-    def __collect(self):
-        return reduce(lambda seq, fun: fun(seq), self.__scheduled, self.__iterable)
+    def map(
+            self,
+            mapper: Callable[[_AT], _RT],
+            lazy: bool = True,
+            chunk_size: int = 1
+    ) -> 'ParallelStream[_RT]':
+        if lazy:
+            self.__schedule(self.__map_lazy, mapper=mapper, chunk_size=chunk_size)
+        else:
+            self.__schedule(partial(self.__map_active, mapper=mapper))
+        return self
+
+    def filter(
+            self,
+            predicate: Callable[[_AT], bool],
+            lazy: bool = True,
+            chunk_size: int = 1
+    ) -> 'ParallelStream[_AT]':
+        if lazy:
+            self.__schedule(partial(self.__filter_lazy, predicate=predicate, chunk_size=chunk_size))
+        else:
+            self.__schedule(partial(self.__filter_active, predicate=predicate))
+        return self
+
+    def reduce(
+            self,
+            reducer: Callable[[_AT, _AT], _AT]
+    ) -> _AT:
+        with Pool(processes=self.__n_processes) as self.__pool:
+            return self.__reduce_lazy(self.__pipe.to_iterable(self.__iterable), reducer)
+
+    def iterator(self) -> Iterable[_AT]:
+        with Pool(processes=self.__n_processes) as self.__pool:
+            for c in self.__pipe.to_iterable(self.__iterable):
+                yield c
 
     def sequential(self) -> 'stream.Stream[_AT]':
         return stream.Stream(self.iterator())
 
     def collect(self, collector: 'Collector[_AT, _RT]') -> _RT:
         with Pool(processes=self.__n_processes) as self.__pool:
-            return collector.collect(self.__collect())
-
-    def iterator(self) -> Iterable[_AT]:
-        with Pool(processes=self.__n_processes) as self.__pool:
-            for c in self.__collect():
-                yield c
+            return collector.collect(self.__pipe.to_iterable(self.__iterable))

@@ -2,15 +2,14 @@ from functools import reduce
 from itertools import chain, islice, count
 from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Iterator, List
 
-import pystream.infrastructure.nullable as nullable
-import pystream.interfaces.stream_interface as stream_interface
+from pystream.infrastructure import nullable as nullable
 import pystream.parallel_stream as parallel_stream
 from multiprocessing import cpu_count
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
 
 
-class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
+class Stream(Generic[_AT]):
     """Stream class to perform functional-style operations in an aesthetically-pleasing manner.
 
     Args:
@@ -37,12 +36,6 @@ class Stream(Generic[_AT], stream_interface.StreamInterface[_AT]):
                 yield partition
             else:
                 break
-
-    def sequential(self) -> 'stream_interface.StreamInterface[_AT]':
-        raise NotImplemented
-
-    def is_parallel(self) -> bool:
-        raise NotImplemented
 
     def map(self, mapper: Callable[[_AT], _RT]) -> "Stream[_RT]":
         """Maps elements using the supplied function."""

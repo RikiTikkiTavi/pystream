@@ -60,7 +60,7 @@ class TransitionsTest(unittest.TestCase):
         self.assertTrue(s == c)
 
     def test_sequentialStream_intermediateOp_parallel_reduce_collect(self):
-        s = self.stream.map(squared).parallel().reduce(0, sum_reducer)
+        s = self.stream.map(squared).parallel().reduce(sum_reducer)
         c = reduce(sum_reducer, map(squared, self.COLLECTION))
         self.assertTrue(s == c)
 
