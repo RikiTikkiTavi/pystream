@@ -1,5 +1,7 @@
-from itertools import islice
-from typing import Generator, TypeVar, Tuple, Iterator, Iterable, List, Generic
+from functools import partial, wraps
+from itertools import islice, chain
+from multiprocessing.pool import Pool
+from typing import Generator, TypeVar, Tuple, Iterator, Iterable, List, Generic, Callable
 
 T = TypeVar("T")
 
@@ -21,3 +23,24 @@ def reduction_pairs_generator(iterable: Iterable[T]) -> Generator[Tuple[T, ...],
         if len(pair) == 0:
             break
         yield pair
+
+
+def fold(
+        iterable: Iterable[T],
+        /,
+        reducer: Callable[[T, T], T],
+        pool: Pool,
+        chunk_size: int = 1
+) -> T:
+    """
+    Parallel fold implementation
+    """
+    while True:
+        iterable = pool.imap(
+            func=reducer,
+            iterable=reduction_pairs_generator(iterable),
+            chunksize=chunk_size
+        )
+        first_pair = tuple(islice(iterable, 2))
+        if len(first_pair) == 1: return first_pair[0]
+        iterable = chain(first_pair, iterable)
