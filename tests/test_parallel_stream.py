@@ -1,4 +1,5 @@
 import unittest
+from itertools import repeat
 from time import sleep, time
 
 from pystream.infrastructure.collectors import to_collection
@@ -86,6 +87,10 @@ class ParallelStreamTest(unittest.TestCase):
         s = self.stream.map(squared).peek(print).collect(to_collection(tuple))
         self.assertTupleEqual(s, tuple(map(squared, self.COLLECTION)))
 
+    def test_objects_type_is_empty(self):
+        tup = tuple(repeat(_Empty, 10))
+        self.assertEqual(ParallelStream(tup).collect(to_collection(tuple)), tup)
+
 
 class AClassWithAMethod(object):
 
@@ -100,3 +105,7 @@ class AClassWithAMethod(object):
 
     def sum_of_two_values(self, x, y) -> int:
         return x + y
+
+
+class _Empty:
+    pass

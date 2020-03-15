@@ -1,5 +1,5 @@
 from functools import reduce, partial
-from typing import Callable, List, Iterable, Any, TypeVar, Generic, Tuple, Union, Type
+from typing import Callable, List, Iterable, Any, TypeVar, Generic, Tuple, Union, Type, cast
 
 _AT = TypeVar("_AT")
 _RT = TypeVar("_RT")
@@ -25,71 +25,38 @@ def _identity(x):
 
 
 def _filter(x: Union[_AT, Type[_Empty]], /, predicate: Callable[[_AT], bool]) -> Union[_AT, Type[_Empty]]:
-    # noinspection Mypy
-    return _Empty if x == _Empty or not predicate(x) else x
+    return _Empty if x == _Empty or not predicate(cast(_AT, x)) else x
 
 
 def _map(x: Union[_AT, Type[_Empty]], /, mapper: Callable[[_AT], _RT]) -> Union[_RT, Type[_Empty]]:
-    # noinspection Mypy
-    return _Empty if x == _Empty else mapper(x)
-
-
-class MaybeEmpty(Generic[_AT]):
-    __x: _AT
-    __empty: bool
-
-    def __init__(self, x: _AT):
-        self.__x = x
-        self.__empty = False
-
-    def filter(self, predicate: Callable[[_AT], bool]):
-        if self.__empty:
-            return self
-        if predicate(self.__x):
-            return self
-        self.__empty = True
-        del self.__x
-        return self
-
-    def map(self, mapper: Callable[[_AT], _RT]):
-        if self.__empty:
-            return self
-        else:
-            self.__x = mapper(self.__x)
-            return self
-
-    def is_empty(self):
-        return self.__empty
-
-
-def _init_operation(x: _AT):
-    return MaybeEmpty(x)
+    return _Empty if x == _Empty else mapper(cast(_AT, x))
 
 
 class Pipe(Generic[_RT]):
-    __operation: Callable[[Any], _RT]
+    __operation: Callable[..., _RT]
 
-    def __init__(self, operation: Callable[[Any], _RT] = _identity):
-        # noinspection Mypy
+    def __init__(self, operation: Callable[..., _RT] = _identity):
         self.__operation = operation
 
     def map(self, mapper: Callable[[_RT], _RT1]) -> "Pipe[_RT1]":
-        # noinspection Mypy
-        return Pipe(partial(
-            _apply_chain_operations,
-            op1=self.__operation,
-            op2=partial(_map, mapper=mapper)
-        ))
+        return Pipe(
+            cast(
+                Callable[..., _RT1],
+                partial(
+                    _apply_chain_operations,
+                    op1=self.__operation,
+                    op2=partial(_map, mapper=mapper)
+                )))
 
-    # noinspection PyMethodMayBeStatic
     def filter(self, predicate: Callable[[_RT], bool]) -> 'Pipe[Union[_AT, _Empty]]':
-        # noinspection Mypy
-        return Pipe(partial(
-            _apply_chain_operations,
-            op1=self.__operation,
-            op2=partial(_filter, predicate=predicate)
-        ))
+        return Pipe(
+            cast(
+                Callable[..., Union[_AT, _Empty]],
+                partial(
+                    _apply_chain_operations,
+                    op1=self.__operation,
+                    op2=partial(_filter, predicate=predicate)
+                )))
 
     def get_operation(self) -> Callable[[Any], _RT]:
-        # noinspection Mypy
         return self.__operation

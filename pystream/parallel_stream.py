@@ -2,7 +2,7 @@ from functools import partial, reduce
 from itertools import chain, islice, tee
 from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
-from typing import Generic, TypeVar, Callable, List, Iterable, Tuple, Any
+from typing import Generic, TypeVar, Callable, List, Iterable, Tuple, Any, cast
 import pystream.infrastructure.utils as utils
 import pystream.stream as stream
 import pystream.infrastructure.pipe as pipe
@@ -15,7 +15,7 @@ def _reducer(pair: Tuple[_AT, ...], /, reducer: Callable[[_AT, _AT], _AT]) -> _A
     return reducer(*pair) if len(pair) == 2 else pair[0]
 
 
-def _order_reducer(*args: Tuple[_AT, ...], selector: Callable[[Tuple[_AT, ...]], _AT]) -> _AT:
+def _order_reducer(*args: _AT, selector: Callable[[Tuple[_AT, ...]], _AT]) -> _AT:
     return selector(args)
 
 
@@ -38,6 +38,7 @@ class ParallelStream(Generic[_AT]):
     # Backends
     # ------------------------------------------------------------------------------
 
+    # noinspection PyMethodMayBeStatic
     def __reduce(
             self,
             iterable: Iterable[_AT],
@@ -51,8 +52,9 @@ class ParallelStream(Generic[_AT]):
         """
         while True:
             iterable = pool.imap(
-                func=partial(_reducer, reducer=reducer),
-                iterable=utils.reduction_pairs_generator(iterable)
+                func=cast(Callable[[Tuple[_AT, ...]], _AT], partial(_reducer, reducer=reducer)),
+                iterable=utils.reduction_pairs_generator(iterable),
+                chunksize=chunk_size
             )
             first_pair = tuple(islice(iterable, 2))
             if len(first_pair) == 1: return first_pair[0]
