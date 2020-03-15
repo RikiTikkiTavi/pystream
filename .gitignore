@@ -266,3 +266,4 @@ pyvenv.cfg
 pip-selfcheck.json
 
 # End of https://www.gitignore.io/api/emacs,python,virtualenv,pycharm+all
+./experiments.ipynb

@@ -5,10 +5,6 @@ from multiprocessing import cpu_count
 from typing import Generic, TypeVar, Callable, List, Iterable, Tuple, Any
 import pystream.infrastructure.utils as utils
 import pystream.stream as stream
-import operator
-
-import pystream.backends.parallel_stream as parallel_back
-
 import pystream.infrastructure.pipe as pipe
 
 _AT = TypeVar('_AT')
@@ -62,6 +58,12 @@ class ParallelStream(Generic[_AT]):
             if len(first_pair) == 1: return first_pair[0]
             iterable = chain(first_pair, iterable)
 
+    def __filter_out_empty(self, iterable: Iterable):
+        return filter(lambda x: x != pipe._Empty, iterable)
+
+    def __iterator_pipe(self, pool: Pool, chunk_size: int = 1):
+        return self.__filter_out_empty(pool.imap(self.__pipe.get_operation(), self.__iterable, chunksize=chunk_size))
+
     # ------------------------------------------------------------------------------
     # Frontends
     # ------------------------------------------------------------------------------
@@ -82,7 +84,7 @@ class ParallelStream(Generic[_AT]):
 
     def reduce(self, reducer: Callable[[_AT, _AT], _AT], chunk_size: int = 1) -> _AT:
         with Pool(processes=self.__n_processes) as pool:
-            return self.__reduce(self.iterator(), reducer, pool, chunk_size)
+            return self.__reduce(self.__iterator_pipe(pool, chunk_size), reducer, pool, chunk_size)
 
     def max(self):
         return self.reduce(partial(_order_reducer, selector=max))
@@ -90,20 +92,19 @@ class ParallelStream(Generic[_AT]):
     def min(self):
         return self.reduce(partial(_order_reducer, selector=min))
 
-    def for_each(self, action: Callable[[_AT], Any], lazy: bool = True, chunk_size: int = 1) -> None:
-        with Pool(processes=self.__n_processes) as self.__pool:
-            for i in self.map(action, lazy, chunk_size).iterator(): pass
+    def for_each(self, action: Callable[[_AT], Any]) -> None:
+        for _ in self.map(action).iterator(): pass
 
     def peek(self, action: Callable[[_AT], Any], lazy: bool = True, chunk_size: int = 1) -> "ParallelStream[_AT]":
-        return self.map(mapper=partial(_with_action, action=action), lazy=lazy, chunk_size=chunk_size)
+        return self.map(mapper=partial(_with_action, action=action))
 
     def iterator(self) -> Iterable[_AT]:
         with Pool(processes=self.__n_processes) as pool:
-            pool.imap(self.__pipe.get_operation(), self.__iterable)
+            for element in self.__iterator_pipe(pool): yield element
 
     def sequential(self) -> 'stream.Stream[_AT]':
         return stream.Stream(self.iterator())
 
     def collect(self, collector: 'Collector[_AT, _RT]', chunk_size: int = 1) -> _RT:
         with Pool(processes=self.__n_processes) as pool:
-            return collector.collect(pool.imap(self.__pipe.get_operation(), self.__iterable, chunksize=chunk_size))
+            return collector.collect(self.__iterator_pipe(pool, chunk_size))

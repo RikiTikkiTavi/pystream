@@ -14,14 +14,6 @@ def partition_generator(iterable: Iterable[T], partition_length: int) -> Generat
             break
 
 
-def lazy_flat_generator(iterable: Iterable[Iterable[T]]) -> Generator[T, None, None]:
-    i: Iterable[T]
-    j: T
-    for i in iterable:
-        for j in i:
-            yield j
-
-
 def reduction_pairs_generator(iterable: Iterable[T]) -> Generator[Tuple[T, ...], None, None]:
     it = iter(iterable)
     while True:

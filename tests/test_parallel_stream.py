@@ -1,5 +1,5 @@
 import unittest
-from time import sleep
+from time import sleep, time
 
 from pystream.infrastructure.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
@@ -8,6 +8,10 @@ from pystream.stream import Stream
 
 def DIVIDES_BY_THREE(x):
     return x % 3 == 0
+
+
+def DIVIDES_BY_TWO(x):
+    return x % 2 == 0
 
 
 def squared(x):
@@ -19,7 +23,7 @@ def sum_reducer(acc, el):
 
 
 class ParallelStreamTest(unittest.TestCase):
-    COLLECTION = [5, 3, 1, 10, 51, 42, 7]
+    COLLECTION = tuple(range(20))
 
     def setUp(self):
         self.stream = ParallelStream(self.COLLECTION)
@@ -33,10 +37,26 @@ class ParallelStreamTest(unittest.TestCase):
 
     def test_whenFiltering_thenReturnElementsWhichEvaluateToTrue(self):
         expected = [x for x in filter(DIVIDES_BY_THREE, self.COLLECTION)]
-
         result = self.stream.filter(DIVIDES_BY_THREE).collect(to_collection(list))
-
         self.assertEqual(expected, result)
+
+    def test_map_filter(self):
+        self.assertEqual(
+            self.stream.map(squared).filter(DIVIDES_BY_THREE).collect(to_collection(tuple)),
+            tuple(filter(DIVIDES_BY_THREE, map(squared, self.COLLECTION)))
+        )
+
+    def test_filter_map(self):
+        self.assertEqual(
+            self.stream.filter(DIVIDES_BY_THREE).map(squared).collect(to_collection(tuple)),
+            tuple(map(squared, filter(DIVIDES_BY_THREE, self.COLLECTION)))
+        )
+
+    def test_filter_filter(self):
+        self.assertEqual(
+            self.stream.filter(DIVIDES_BY_THREE).filter(DIVIDES_BY_TWO).collect(to_collection(tuple)),
+            tuple(filter(DIVIDES_BY_TWO, filter(DIVIDES_BY_THREE, self.COLLECTION)))
+        )
 
     def test_whenReducing_thenReturnFinalValueOfAccumulator(self):
         reduction = self.stream.reduce(sum_reducer)
