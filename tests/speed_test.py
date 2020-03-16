@@ -1,10 +1,9 @@
 import math
-from time import time, sleep
+from time import time
 
-from pystream.infrastructure import pipe
 from pystream.infrastructure.collectors import to_collection
-from pystream.parallel_stream import ParallelStream
-from pystream.stream import Stream
+from pystream import ParallelStream
+from pystream import SequentialStream
 
 
 def _filter(x):
@@ -31,7 +30,7 @@ if __name__ == '__main__':
     print("Sequential:")
     for i in range(5):
         t_s = time()
-        Stream(collection) \
+        SequentialStream(collection) \
             .filter(_filter) \
             .map(math.factorial) \
             .collect(collector=to_collection(tuple))

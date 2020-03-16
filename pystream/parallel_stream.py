@@ -1,11 +1,12 @@
-from functools import partial, reduce
-from itertools import chain, islice, tee
+from functools import partial
+from itertools import chain
 from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
 from typing import Generic, TypeVar, Callable, Iterable, Tuple, Any
-import pystream.infrastructure.utils as utils
-import pystream.stream as stream
-import pystream.infrastructure.pipe as pipe
+import pystream.core.utils as utils
+import pystream.sequential_stream as stream
+import pystream.core.pipe as pipe
+import pystream.infrastructure.collectors as collectors
 
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
@@ -70,9 +71,9 @@ class ParallelStream(Generic[_AT]):
         with Pool(processes=self.__n_processes) as pool:
             for element in self.__iterator_pipe(pool): yield element
 
-    def sequential(self) -> 'stream.Stream[_AT]':
-        return stream.Stream(self.iterator())
+    def sequential(self) -> 'stream.SequentialStream[_AT]':
+        return stream.SequentialStream(self.iterator())
 
-    def collect(self, collector: 'Collector[_AT, _RT]', chunk_size: int = 1) -> _RT:
+    def collect(self, collector: 'collectors.Collector[_AT, _RT]', chunk_size: int = 1) -> _RT:
         with Pool(processes=self.__n_processes) as pool:
             return collector.collect(self.__iterator_pipe(pool, chunk_size))

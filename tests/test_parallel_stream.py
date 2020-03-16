@@ -4,7 +4,7 @@ from time import sleep, time
 
 from pystream.infrastructure.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
-from pystream.stream import Stream
+from pystream.sequential_stream import SequentialStream
 
 
 def DIVIDES_BY_THREE(x):
@@ -69,13 +69,13 @@ class ParallelStreamTest(unittest.TestCase):
             self.stream.map(sum_reducer).collect(to_collection(list))
 
     def test_givenClassReference_whenMapping_thenCallClassConstructor(self):
-        squares = Stream.of(1, 2, 3, 4).map(AClassWithAMethod).map(AClassWithAMethod.get_square).collect(
+        squares = SequentialStream.of(1, 2, 3, 4).map(AClassWithAMethod).map(AClassWithAMethod.get_square).collect(
             to_collection(list))
 
         self.assertEqual([1, 4, 9, 16], squares)
 
     def test_transition_to_sequential_returns_sequential(self):
-        self.assertIsInstance(self.stream.sequential(), Stream)
+        self.assertIsInstance(self.stream.sequential(), SequentialStream)
 
     def test_max(self):
         self.assertEqual(self.stream.max(), max(self.COLLECTION))

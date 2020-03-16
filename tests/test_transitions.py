@@ -4,7 +4,7 @@ from time import sleep
 
 from pystream.infrastructure.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
-from pystream.stream import Stream
+from pystream.sequential_stream import SequentialStream
 
 
 def DIVIDES_BY_THREE(x):
@@ -24,10 +24,10 @@ class TransitionsTest(unittest.TestCase):
 
     def setUp(self):
         self.parallel_stream = ParallelStream(self.COLLECTION)
-        self.stream = Stream(self.COLLECTION)
+        self.stream = SequentialStream(self.COLLECTION)
 
     def test_transition_to_sequential_returns_sequential(self):
-        self.assertIsInstance(self.parallel_stream.sequential(), Stream)
+        self.assertIsInstance(self.parallel_stream.sequential(), SequentialStream)
 
     def test_parallelStream_filter_sequential_collect(self):
         s = self.parallel_stream.filter(DIVIDES_BY_THREE).sequential().collect(to_collection(list))

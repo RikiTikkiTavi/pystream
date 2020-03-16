@@ -4,16 +4,18 @@ from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Iterator, L
 
 from pystream.infrastructure import nullable as nullable
 import pystream.parallel_stream as parallel_stream
+import pystream.infrastructure.collectors as collectors
 from multiprocessing import cpu_count
+
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
 
 
-class Stream(Generic[_AT]):
-    """Stream class to perform functional-style operations in an aesthetically-pleasing manner.
+class SequentialStream(Generic[_AT]):
+    """SequentialStream class to perform functional-style operations in an aesthetically-pleasing manner.
 
     Args:
-        *iterables (Iterable) : Source iterables for the Stream object. When multiple iterables are given,
+        *iterables (Iterable) : Source iterables for the SequentialStream object. When multiple iterables are given,
         they will be concatenated.
     """
 
@@ -37,13 +39,13 @@ class Stream(Generic[_AT]):
             else:
                 break
 
-    def map(self, mapper: Callable[[_AT], _RT]) -> "Stream[_RT]":
+    def map(self, mapper: Callable[[_AT], _RT]) -> "SequentialStream[_RT]":
         """Maps elements using the supplied function."""
-        return Stream(map(mapper, self.__iterable))
+        return SequentialStream(map(mapper, self.__iterable))
 
-    def filter(self, predicate: Callable[[_AT], bool]) -> "Stream[_AT]":
+    def filter(self, predicate: Callable[[_AT], bool]) -> "SequentialStream[_AT]":
         """Filters elements using the supplied function."""
-        return Stream(filter(predicate, self.__iterable))
+        return SequentialStream(filter(predicate, self.__iterable))
 
     def reduce(self, start_value: _RT, reducer: Callable[[_RT, _AT], _RT]) -> _RT:
         """Reduce using the supplied function."""
@@ -66,16 +68,15 @@ class Stream(Generic[_AT]):
         """Returns True if no element of the stream matches the criteria."""
         return not self.any_match(predicate)
 
-    def flat_map(self, mapper: Callable[[_AT], "Stream[_RT]"]) -> "Stream[_RT]":
+    def flat_map(self, mapper: Callable[[_AT], "SequentialStream[_RT]"]) -> "SequentialStream[_RT]":
         """
         When iterating over lists, flattens the stream by concatenating all lists using mapper function.
         """
-        # TODO: lazy chaining!
-        return Stream(chain(*map(mapper, self.__iterable)))
+        return SequentialStream(chain.from_iterable(map(mapper, self.__iterable)))
 
     def count(self) -> int:
         """
-        Returns the number of elements in the Stream. **Should never be used with an infinite stream!**
+        Returns the number of elements in the SequentialStream. **Should never be used with an infinite stream!**
         """
         if hasattr(self.__iterable, '__len__'):
             # noinspection PyTypeChecker
@@ -100,9 +101,9 @@ class Stream(Generic[_AT]):
         """Returns the max of all elements in the stream."""
         return max(self.__iterable)
 
-    def limit(self, number: int) -> "Stream[_AT]":
+    def limit(self, number: int) -> "SequentialStream[_AT]":
         """Limit the stream to a specific number of items."""
-        return Stream(islice(self.__iterable, number))
+        return SequentialStream(islice(self.__iterable, number))
 
     def find_first(self) -> nullable.Nullable[_AT]:
         """
@@ -114,37 +115,37 @@ class Stream(Generic[_AT]):
     def find_any(self) -> 'nullable.Nullable[_AT]':
         return self.find_first()
 
-    def peek(self, action: Callable[[_AT], Any]) -> 'Stream[_AT]':
+    def peek(self, action: Callable[[_AT], Any]) -> 'SequentialStream[_AT]':
         def with_action(x):
             action(x)
             return x
 
         return self.map(with_action)
 
-    def collect(self, collector: 'Collector[_AT, _RT]') -> _RT:
+    def collect(self, collector: 'collectors.Collector[_AT, _RT]') -> _RT:
         return collector.collect(self)
 
     def parallel(self, n_processes: int = cpu_count()) -> "parallel_stream.ParallelStream[_AT]":
         return parallel_stream.ParallelStream(self.__iterable, n_processes=n_processes)
 
     @staticmethod
-    def range(*args) -> "Stream[int]":
+    def range(*args) -> "SequentialStream[int]":
         """
         Creates an incrementing, integer stream.
         If arguments are supplied, they are passed as-is to the builtin `range` function.
         Otherwise, an infinite stream is created, starting at 0.
         """
         if len(args) == 0:
-            return Stream(count())
+            return SequentialStream(count())
         else:
-            return Stream(range(*args))
+            return SequentialStream(range(*args))
 
     @staticmethod
-    def of(*args: _RT) -> "Stream[_RT]":
+    def of(*args: _RT) -> "SequentialStream[_RT]":
         """Creates a stream with non iterable arguments."""
-        return Stream(args)
+        return SequentialStream(args)
 
     @staticmethod
-    def zip(*iterables: Iterable[_AT]) -> "Stream[Tuple[_AT, ...]]":
+    def zip(*iterables: Iterable[_AT]) -> "SequentialStream[Tuple[_AT, ...]]":
         """Creates a stream by *zipping* the iterables, instead of concatenating them."""
-        return Stream(zip(*iterables))
+        return SequentialStream(zip(*iterables))
