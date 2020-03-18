@@ -40,7 +40,7 @@ class Pipe(Generic[_RT]):
     __operation: Callable[[Any], _RT]
     __has_identity: bool
 
-    def __init__(self, operation: Callable[..., _RT] = _identity):
+    def __init__(self, operation: Callable[[Any], _RT] = _identity):
         self.__operation = operation
 
     def map(self, mapper: Callable[[_RT], _RT1]) -> "Pipe[_RT1]":

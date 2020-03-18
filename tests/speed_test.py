@@ -6,16 +6,16 @@ from pystream import ParallelStream
 from pystream import SequentialStream
 
 
-def _filter(x):
+def _filter(x) -> bool:
     return x % 3 == 0
 
 
 if __name__ == '__main__':
-    collection = tuple(range(10_000, 11_000))
+    collection = tuple(range(10_000, 10_100))
     times = []
 
     print("Parallel:")
-    for i in range(5):
+    for i in range(100):
         t_s = time()
         ParallelStream(collection) \
             .filter(_filter) \
@@ -28,7 +28,7 @@ if __name__ == '__main__':
 
     times = []
     print("Sequential:")
-    for i in range(5):
+    for i in range(100):
         t_s = time()
         SequentialStream(collection) \
             .filter(_filter) \

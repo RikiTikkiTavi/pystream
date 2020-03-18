@@ -1,11 +1,12 @@
 from functools import reduce
 from itertools import chain, islice, count
-from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Iterator, List
+from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Iterator, List, Union, Generator
+from multiprocessing import cpu_count
 
-from pystream.infrastructure import nullable as nullable
+import pystream.infrastructure.nullable as nullable
 import pystream.parallel_stream as parallel_stream
 import pystream.infrastructure.collectors as collectors
-from multiprocessing import cpu_count
+import pystream.core.utils as utils
 
 _AT = TypeVar('_AT')
 _RT = TypeVar('_RT')
@@ -24,20 +25,16 @@ class SequentialStream(Generic[_AT]):
     def __init__(self, *iterables: Iterable[_AT]):
         self.__iterable = chain(*iterables)
 
-    def iterator(self) -> Iterator[_AT]:
-        return iter(tuple(self.__iterable))
-
     def __iter__(self):
+        return self.iterator()
+
+    def iterator(self) -> Iterator[_AT]:
+        """Creates iterator from stream. This is terminal operation."""
         return iter(self.__iterable)
 
-    def partition_iterator(self, partition_size: int) -> Iterator[List[_AT]]:
-        it: Iterator[_AT] = iter(tuple(self.__iterable))
-        while True:
-            partition: List[_AT] = list(islice(it, partition_size))
-            if len(partition) > 0:
-                yield partition
-            else:
-                break
+    def partition_iterator(self, partition_size: int) -> Generator[List[_AT], None, None]:
+        """Creates iterator over partitions of stream. This is terminal operation."""
+        return utils.partition_generator(self.iterator(), partition_size)
 
     def map(self, mapper: Callable[[_AT], _RT]) -> "SequentialStream[_RT]":
         """Maps elements using the supplied function."""
@@ -89,7 +86,7 @@ class SequentialStream(Generic[_AT]):
         """
         return tuple(zip(*self.__iterable))
 
-    def sum(self) -> _AT:
+    def sum(self) -> Union[_AT, int]:
         """Returns the sum of all elements in the stream."""
         return sum(self.__iterable)
 
@@ -125,8 +122,8 @@ class SequentialStream(Generic[_AT]):
     def collect(self, collector: 'collectors.Collector[_AT, _RT]') -> _RT:
         return collector.collect(self)
 
-    def parallel(self, n_processes: int = cpu_count()) -> "parallel_stream.ParallelStream[_AT]":
-        return parallel_stream.ParallelStream(self.__iterable, n_processes=n_processes)
+    def parallel(self, n_processes: int = cpu_count(), chunk_size: int = 1) -> "parallel_stream.ParallelStream[_AT]":
+        return parallel_stream.ParallelStream(self.__iterable, n_processes=n_processes, chunk_size=chunk_size)
 
     @staticmethod
     def range(*args) -> "SequentialStream[int]":

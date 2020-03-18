@@ -1,5 +1,4 @@
 from typing import TypeVar, Generic, Optional, Callable, Union
-import inspect
 
 _T = TypeVar('_T')
 _S = TypeVar('_S')
@@ -63,17 +62,14 @@ class Nullable(Generic[_T]):
             return self._item
         return supplier()
 
-    def if_present(self, consumer: Union[Callable[[_T], None], Callable[..., None]]) -> "Nullable[_T]":
+    def if_present(self, consumer: Callable[[_T], None]) -> "Nullable[_T]":
         """Invoke function if value is present; otherwise does nothing.
 
         Args:
             consumer (Callable) : Function to be invoked with a non-nil parameter.
         """
         if self.is_present():
-            if self.__should_expand(consumer):
-                consumer(*self._item)
-            else:
-                consumer(self._item)
+            consumer(self._item)
         return self
 
     def filter(self, predicate: Union[Callable[[_T], bool], Callable[..., bool]]) -> "Nullable[_T]":
@@ -84,33 +80,21 @@ class Nullable(Generic[_T]):
 
         """
         if self.is_present():
-            if self.__should_expand(predicate):
-                return self if predicate(*self._item) else Nullable.empty()
             return self if predicate(self._item) else Nullable.empty()
         return Nullable.empty()
 
-    def map(self, callable: Union[Callable[[_T], _S], Callable[..., _S]]) -> "Nullable[_S]":
+    def map(self, callable: Callable[[_T], _S]) -> "Nullable[_S]":
         """Maps the item when present.
 
         Args:
             callable (Callable) : Invoked with a non-nil parameter.
         """
         if self.is_present():
-            if self.__should_expand(callable):
-                return Nullable(callable(*self._item))
             return Nullable(callable(self._item))
         return Nullable.empty()
 
     def __bool__(self) -> bool:
         return self.is_present()
-
-    def __should_expand(self, fun: Callable) -> bool:
-        if inspect.isbuiltin(fun):
-            return False
-        if inspect.isclass(fun):
-            return len(inspect.signature(fun.__init__).parameters) > 2
-        sig = inspect.signature(fun)
-        return len(sig.parameters) > 1
 
     @staticmethod
     def empty() -> "Nullable":

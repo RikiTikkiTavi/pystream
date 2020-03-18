@@ -98,11 +98,3 @@ class NullableTest(unittest.TestCase):
 
         self.non_null.if_present(callback)
         self.assertTrue(mock.called)
-
-    def test_givenACallableWhichTakesMoreThanOneParameter_whenMappingOrFiltering_thenExpandTupleToMultipleParameters(
-            self):
-        tupleNullable = Nullable((1, 2))
-
-        sum = tupleNullable.map(lambda x, y: x + y)
-
-        self.assertEqual(3, sum.get())
