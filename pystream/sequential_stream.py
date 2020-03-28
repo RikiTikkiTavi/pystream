@@ -136,36 +136,40 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
 
     def count(self) -> int:
         """
-        Returns the number of elements in the SequentialStream. **Should never be used with an infinite stream!**
+        Returns the count of elements in this stream. This is a special case of a reduction.
+        :return: The count of elements in this stream
         """
         if hasattr(self.__iterable, '__len__'):
             # noinspection PyTypeChecker
             return len(self.__iterable)
         return self.reduce(0, lambda accumulator, element: accumulator + 1)
 
-    def unzip(self) -> Tuple[tuple, ...]:
-        """
-        When iterating over tuples, unwraps the stream back to separate lists. This is a terminal operation.
-        """
-        return tuple(zip(*self.__iterable))
-
     def sum(self) -> Union[_AT, int]:
-        """Returns the sum of all elements in the stream."""
+        """
+        :return: The sum of elements in this stream
+        """
         return sum(self.__iterable)
 
-    def min(self) -> _AT:
-        """Returns the min of all elements in the stream."""
-        return min(self.__iterable)
-
-    def max(self) -> _AT:
-        """Returns the max of all elements in the stream."""
-        return max(self.__iterable)
-
-    def limit(self, number: int) -> "SequentialStream[_AT]":
+    def min(self) -> nullable.Nullable[_AT]:
         """
-        Limit the stream to a specific number of items.
+        :return: Returns a Nullable describing the minimum element of this stream, or an empty Nullable if this stream is empty.
         """
-        return SequentialStream(islice(self.__iterable, number))
+        return nullable.Nullable(min(self.__iterable, default=None))
+
+    def max(self) -> nullable.Nullable[_AT]:
+        """
+        :return: Returns a Nullable describing the maximum element of this stream, or an empty Nullable if this stream is empty.
+        """
+        return nullable.Nullable(max(self.__iterable, default=None))
+
+    def limit(self, max_size: int) -> "SequentialStream[_AT]":
+        """
+        Returns a stream consisting of the elements of this stream, truncated to be no longer than max_size in length.
+
+        :param max_size: The number of elements the stream should be limited to
+        :return: The new stream
+        """
+        return SequentialStream(islice(self.__iterable, max_size))
 
     def find_first(self) -> nullable.Nullable[_AT]:
         """
@@ -192,9 +196,23 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         return self.map(with_action)
 
     def collect(self, collector: 'collectors.Collector[_AT, _RT]') -> _RT:
+        """
+        Collects the stream using supplied collector.
+        This is terminal operation.
+
+        :param collector:  Collector instance
+        :return: The result of collector.collect(...)
+        """
         return collector.collect(self)
 
     def parallel(self, n_processes: int = cpu_count(), chunk_size: int = 1) -> "parallel_stream.ParallelStream[_AT]":
+        """
+        Creates parallel (multiprocessing) stream from current stream. All following operations will be performed in parallel.
+
+        :param n_processes: Number of processes to use.
+        :param chunk_size: The size of chunk.
+        :return: New parallel stream
+        """
         return parallel_stream.ParallelStream(self.__iterable, n_processes=n_processes, chunk_size=chunk_size)
 
     @staticmethod
@@ -203,6 +221,8 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         Creates an incrementing, integer stream.
         If arguments are supplied, they are passed as-is to the builtin `range` function.
         Otherwise, an infinite stream is created, starting at 0.
+
+        :return: New SequentialStream.
         """
         if len(args) == 0:
             return SequentialStream(count())
@@ -211,10 +231,20 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
 
     @staticmethod
     def of(*args: _RT) -> "SequentialStream[_RT]":
-        """Creates a stream with non iterable arguments."""
+        """
+        Creates a stream with non iterable arguments.
+
+        :param `*args`: Arguments of the same type from wich the stream will be created.
+        :return: The new stream.
+        """
         return SequentialStream(args)
 
     @staticmethod
     def zip(*iterables: Iterable[_AT]) -> "SequentialStream[Tuple[_AT, ...]]":
-        """Creates a stream by *zipping* the iterables, instead of concatenating them."""
+        """
+        Creates a stream by *zipping* the iterables, instead of concatenating them.
+
+        :param `*iterables`: Iterables
+        :returns The new stream.
+        """
         return SequentialStream(zip(*iterables))
