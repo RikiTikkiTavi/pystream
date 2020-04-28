@@ -63,9 +63,6 @@ html_theme_options = {
     'repo_url': 'https://github.com/RikiTikkiTavi/PyStream-API',
     'nav_title': 'PyStream',
     'logo_icon': '&#xe869',
-    'heroes': {
-        'index': 'Functional style lazy array processing methods. Java StreamApi analogue.',
-    },
     'master_doc': False,
     'nav_links': [],
     'globaltoc_depth': 3,

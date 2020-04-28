@@ -1,6 +1,8 @@
 Welcome to PyStream's documentation!
 ====================================
 
+PyStream tries to be an analogue of Java Stream Api in Python.
+
 .. toctree::
    :maxdepth: 2
 
