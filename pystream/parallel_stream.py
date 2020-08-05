@@ -47,39 +47,104 @@ class ParallelStream(Generic[_AT]):
         )
 
     def iterator(self) -> Generator[_AT, None, None]:
+        """
+        Creates iterator from stream.
+        This is terminal operation.
+
+        :returns: Iterator over stream elements
+        """
         with Pool(processes=self.__n_processes) as pool:
             for element in self.__iterator_pipe(pool): yield element
 
     def partition_iterator(self, partition_size: int) -> Generator[Tuple[_AT, ...], None, None]:
+        """
+        Creates iterator over partitions of stream. This is terminal operation.
+
+        :param partition_size: Length of partition
+        :returns: Iterator over partitions of stream.
+        """
         return utils.partition_generator(self.iterator(), partition_size)
 
     def map(self, mapper: Callable[[_AT], _RT]) -> 'ParallelStream[_RT]':
+        """
+        Returns a stream consisting of the results of applying the given function to the elements of this stream.
+        This is an intermediate operation.
+
+        :param mapper: Mapper function
+        :return: Stream with mapper operation lazily applied
+        """
         self.__pipe = self.__pipe.map(mapper)
         return self
 
     def filter(self, predicate: Callable[[_AT], bool]) -> 'ParallelStream[_AT]':
+        """
+        Returns a stream consisting of the elements of this stream that match the given predicate.
+        This is an intermediate operation.
+
+        :param predicate: Predicate to apply to each element to determine if it should be included
+        :return: The new stream
+        """
         self.__pipe = self.__pipe.filter(predicate)
         return self
 
     def peek(self, action: Callable[[_AT], Any]) -> "ParallelStream[_AT]":
+
+        """
+        Returns a stream consisting of the elements of this stream, additionally performing the provided action on each
+        element as elements are consumed from the resulting stream.
+        This is an intermediate operation.
+
+        :param action: An action to perform on the elements as they are consumed from the stream
+        :return: the new stream
+        """
+
         return self.map(mapper=partial(_with_action, action=action))
 
     def reduce(self, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
+        """
+        Performs a reduction on the elements of this stream, using provided associative
+        accumulation function, and returns the reduced value.
+
+        :param reducer: Function for combining two values
+        :return: The result of the reduction
+        """
         with Pool(processes=self.__n_processes) as pool:
             return utils.fold(self.__iterator_pipe(pool), partial(_reducer, reducer=reducer), pool, self.__chunk_size)
 
     def max(self) -> _AT:
+        """
+        :return: Returns a Nullable describing the maximum element of this stream, or an empty Nullable if this stream is empty.
+        """
         return self.reduce(partial(_order_reducer, selector=max))
 
     def min(self) -> _AT:
+        """
+        :return: Returns a Nullable describing the minimum element of this stream, or an empty Nullable if this stream is empty.
+        """
         return self.reduce(partial(_order_reducer, selector=min))
 
     def for_each(self, action: Callable[[_AT], Any]) -> None:
+        """
+        Performs an action for each element of this stream.
+        This is terminal operation.
+
+        :param action: An action to perform on the elements
+        """
         for _ in self.map(action).iterator(): pass
 
     def sequential(self) -> 'stream.SequentialStream[_AT]':
+        """
+        :return: Sequential Stream. All ops applied on parallel stream still parallel.
+        """
         return stream.SequentialStream(self.iterator())
 
     def collect(self, collector: 'collectors.Collector[_AT, _RT]') -> _RT:
+        """
+        Collects the stream using supplied collector.
+        This is terminal operation.
+
+        :param collector:  Collector instance
+        :return: The result of collector.collect(...)
+        """
         with Pool(processes=self.__n_processes) as pool:
             return collector.collect(stream.SequentialStream(self.__iterator_pipe(pool)))
