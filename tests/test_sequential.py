@@ -169,21 +169,6 @@ class SequentialStreamTest(unittest.TestCase):
 
         self.assertEqual([1, 2, 3], result)
 
-    def test_givenMissingParameters_whenGettingRange_thenReturnInfiniteIterator(self):
-        first_25 = SequentialStream.range().limit(25).collect(to_collection(list))
-
-        self.assertEqual([x for x in range(0, 25)], first_25)
-
-    def test_givenParameters_whenGettingRange_thenPassParametersToBuiltinRange(self):
-        first5 = SequentialStream.range(5).collect(to_collection(list))
-
-        self.assertEqual([x for x in range(0, 5)], first5)
-
-    def test_whenGettingFirst_thenReturnNullableContainingFirstElementInIterable(self):
-        first = SequentialStream.range().find_first().get()
-
-        self.assertEqual(0, first)
-
     def test_givenEmptyStream_whenGettingFirst_thenReturnEmptyNullable(self):
         first = SequentialStream([]).find_first()
 

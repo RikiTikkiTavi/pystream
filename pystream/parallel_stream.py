@@ -34,7 +34,7 @@ def _order_reducer(*args: _AT, selector: Callable[[Tuple[_AT, ...]], _AT]) -> _A
     return selector(args)
 
 
-def _with_action(x: _AT, /, action: Callable[[_AT], Any]):
+def _with_action(x: _AT, /, action: Callable[[_AT], Any]) -> _AT:
     action(x)
     return x
 
@@ -55,7 +55,7 @@ class ParallelStream(Generic[_AT]):
         self.__pipe = core_pipe.Pipe()
         self.__chunk_size = chunk_size
 
-    def __iterator_pipe(self, pool: Pool):
+    def __iterator_pipe(self, pool: Pool) -> Iterator[_AT]:
         return core_pipe.filter_out_empty(
             pool.imap(
                 self.__pipe.get_operation(),
@@ -117,7 +117,6 @@ class ParallelStream(Generic[_AT]):
         :param action: An action to perform on the elements as they are consumed from the stream
         :return: the new stream
         """
-
         return self.map(mapper=partial(_with_action, action=action))
 
     def reduce(self, reducer: Callable[[_AT, _AT], _AT]) -> _AT:

@@ -1,4 +1,4 @@
-from typing import NoReturn, TypeVar, Generic, Optional, Callable, Union, cast
+from typing import Any, NoReturn, TypeVar, Generic, Optional, Callable, Union, cast
 
 _T = TypeVar("_T")
 _S = TypeVar("_S")
@@ -99,5 +99,5 @@ class Nullable(Generic[_T]):
         return self.is_present()
 
     @staticmethod
-    def empty() -> "Nullable":
+    def empty() -> "Nullable[Any]":
         return Nullable(None)

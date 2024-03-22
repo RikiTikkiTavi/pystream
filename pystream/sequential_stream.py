@@ -1,8 +1,10 @@
 from ast import Call
 from functools import reduce
 from itertools import chain, islice, count
+import os
 from typing import (
     Generic,
+    Sized,
     TypeVar,
     Callable,
     Iterable,
@@ -43,7 +45,7 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
     def __init__(self, *iterables: Iterable[_AT]):
         self.__iterable = chain(*iterables)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[_AT]:
         return self.iterator()
 
     def iterator(self) -> Iterator[_AT]:
@@ -161,8 +163,8 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         Returns the count of elements in this stream. This is a special case of a reduction.
         :return: The count of elements in this stream
         """
-        if hasattr(self.__iterable, "__len__"):
-            return len(self.__iterable)  # type: ignore
+        if isinstance(self.__iterable, Sized):
+            return len(self.__iterable)
 
         return self.reduce(0, lambda accumulator, element: accumulator + 1)
 
@@ -193,7 +195,7 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         :return: the new stream
         """
 
-        def with_action(x):
+        def with_action(x: _AT) -> _AT:
             action(x)
             return x
 
@@ -210,7 +212,7 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         return collector.collect(self)
 
     def parallel(
-        self, n_processes: int = cpu_count(), chunk_size: int = 1
+        self, n_processes: int = len(os.sched_getaffinity(0)), chunk_size: int = 1
     ) -> "parallel_stream.ParallelStream[_AT]":
         """
         Creates parallel (multiprocessing) stream from current stream. All following operations will be performed in parallel.
@@ -222,20 +224,6 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         return parallel_stream.ParallelStream(
             self.__iterable, n_processes=n_processes, chunk_size=chunk_size
         )
-
-    @staticmethod
-    def range(*args) -> "SequentialStream[int]":
-        """
-        Creates an incrementing, integer stream.
-        If arguments are supplied, they are passed as-is to the builtin `range` function.
-        Otherwise, an infinite stream is created, starting at 0.
-
-        :return: New SequentialStream.
-        """
-        if len(args) == 0:
-            return SequentialStream(count())
-        else:
-            return SequentialStream(range(*args))
 
     @staticmethod
     def of(*args: _RT) -> "SequentialStream[_RT]":

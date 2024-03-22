@@ -16,7 +16,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Topic :: Software Development :: Libraries :: Python Modules"
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 [tool.poetry.dependencies]
@@ -27,4 +27,25 @@ typing-extensions = "^4.10.0"
 optional = true
 
 [tool.poetry.group.test.dependencies]
-codecov= "^2.0.15"
+codecov = "^2.0.15"
+pytest = "^8.1.1"
+mypy = "^1.9.0"
+
+pytest-cov = "^4.1"
+pytest-randomly = "^3.15"
+
+[tool.mypy]
+enable_error_code = [
+    "truthy-bool",
+    "truthy-iterable",
+    "redundant-expr",
+    "unused-awaitable",
+    "ignore-without-code",
+    "possibly-undefined",
+    "redundant-self",
+]
+exclude = [
+    "tests"
+]
+strict = true
+warn_unreachable = true
