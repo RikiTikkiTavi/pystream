@@ -4,6 +4,12 @@ Java Stream analogy in python. Completely typed.
 
 Check the code for documentation.
 
+## Installation
+
+```bash
+pip install https://github.com/RikiTikkiTavi/pystream@v0.1.0
+```
+
 ## Example usage
 
 ```python
