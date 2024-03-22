@@ -7,7 +7,7 @@ Check the code for documentation.
 ## Installation
 
 ```bash
-pip install https://github.com/RikiTikkiTavi/pystream@v0.1.0
+pip install git+https://github.com/RikiTikkiTavi/pystream.git@v0.1.0
 ```
 
 ## Example usage
