@@ -1,0 +1,30 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "pystream"
+version = "1.0.0"
+description = "Java Stream API analogy in python."
+license = "MIT"
+readme = "README.md"
+authors = ["Yahor Paromau <yahor.paromau@gmail.com>"]
+repository = "https://github.com/RikiTikkiTavi/pystream"
+keywords = ["stream-api", "stream", "java stream"]
+packages = [{ include = "pystream", from = "./" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+typing-extensions = "^4.10.0"
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+codecov= "^2.0.15"

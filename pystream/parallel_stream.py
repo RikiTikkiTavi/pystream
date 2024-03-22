@@ -2,14 +2,28 @@ from functools import partial
 from itertools import chain
 from multiprocessing.pool import Pool
 from multiprocessing import cpu_count
-from typing import Generic, TypeVar, Callable, Iterable, Tuple, Any, Generator
+from typing import (
+    Generic,
+    Iterator,
+    TypeVar,
+    Callable,
+    Iterable,
+    Tuple,
+    Any,
+    Generator,
+    cast,
+)
 import pystream.core.utils as utils
 import pystream.sequential_stream as stream
 import pystream.core.pipe as core_pipe
-import pystream.infrastructure.collectors as collectors
+import pystream.collectors as collectors
 
-_AT = TypeVar('_AT')
-_RT = TypeVar('_RT')
+import pystream.types
+
+_AT = TypeVar("_AT")
+_RT = TypeVar("_RT")
+
+_NAT = TypeVar("_NAT", bound=pystream.types.SupportsAddAndCompare)
 
 
 def _reducer(pair: Tuple[_AT, ...], /, reducer: Callable[[_AT, _AT], _AT]) -> _AT:
@@ -28,13 +42,13 @@ def _with_action(x: _AT, /, action: Callable[[_AT], Any]):
 class ParallelStream(Generic[_AT]):
     __n_processes: int
     __pipe: core_pipe.Pipe[_AT]
-    __iterable: Iterable[_AT]
+    __iterable: Iterator[_AT]
 
     def __init__(
-            self,
-            *iterables: Iterable[_AT],
-            n_processes: int = cpu_count(),
-            chunk_size: int = 1,
+        self,
+        *iterables: Iterable[_AT],
+        n_processes: int = cpu_count(),
+        chunk_size: int = 1,
     ):
         self.__iterable = chain(*iterables)
         self.__n_processes = n_processes
@@ -43,7 +57,11 @@ class ParallelStream(Generic[_AT]):
 
     def __iterator_pipe(self, pool: Pool):
         return core_pipe.filter_out_empty(
-            pool.imap(self.__pipe.get_operation(), self.__iterable, chunksize=self.__chunk_size)
+            pool.imap(
+                self.__pipe.get_operation(),
+                self.__iterable,
+                chunksize=self.__chunk_size,
+            )
         )
 
     def iterator(self) -> Generator[_AT, None, None]:
@@ -54,9 +72,12 @@ class ParallelStream(Generic[_AT]):
         :returns: Iterator over stream elements
         """
         with Pool(processes=self.__n_processes) as pool:
-            for element in self.__iterator_pipe(pool): yield element
+            for element in self.__iterator_pipe(pool):
+                yield element
 
-    def partition_iterator(self, partition_size: int) -> Generator[Tuple[_AT, ...], None, None]:
+    def partition_iterator(
+        self, partition_size: int
+    ) -> Generator[list[_AT], None, None]:
         """
         Creates iterator over partitions of stream. This is terminal operation.
 
@@ -65,7 +86,7 @@ class ParallelStream(Generic[_AT]):
         """
         return utils.partition_generator(self.iterator(), partition_size)
 
-    def map(self, mapper: Callable[[_AT], _RT]) -> 'ParallelStream[_RT]':
+    def map(self, mapper: Callable[[_AT], _RT]) -> "ParallelStream[_RT]":
         """
         Returns a stream consisting of the results of applying the given function to the elements of this stream.
         This is an intermediate operation.
@@ -74,9 +95,9 @@ class ParallelStream(Generic[_AT]):
         :return: Stream with mapper operation lazily applied
         """
         self.__pipe = self.__pipe.map(mapper)
-        return self
+        return cast("ParallelStream[_RT]", self)
 
-    def filter(self, predicate: Callable[[_AT], bool]) -> 'ParallelStream[_AT]':
+    def filter(self, predicate: Callable[[_AT], bool]) -> "ParallelStream[_AT]":
         """
         Returns a stream consisting of the elements of this stream that match the given predicate.
         This is an intermediate operation.
@@ -88,7 +109,6 @@ class ParallelStream(Generic[_AT]):
         return self
 
     def peek(self, action: Callable[[_AT], Any]) -> "ParallelStream[_AT]":
-
         """
         Returns a stream consisting of the elements of this stream, additionally performing the provided action on each
         element as elements are consumed from the resulting stream.
@@ -109,19 +129,12 @@ class ParallelStream(Generic[_AT]):
         :return: The result of the reduction
         """
         with Pool(processes=self.__n_processes) as pool:
-            return utils.fold(self.__iterator_pipe(pool), partial(_reducer, reducer=reducer), pool, self.__chunk_size)
-
-    def max(self) -> _AT:
-        """
-        :return: Returns a Nullable describing the maximum element of this stream, or an empty Nullable if this stream is empty.
-        """
-        return self.reduce(partial(_order_reducer, selector=max))
-
-    def min(self) -> _AT:
-        """
-        :return: Returns a Nullable describing the minimum element of this stream, or an empty Nullable if this stream is empty.
-        """
-        return self.reduce(partial(_order_reducer, selector=min))
+            return utils.fold(
+                self.__iterator_pipe(pool),
+                partial(_reducer, reducer=reducer),
+                pool,
+                self.__chunk_size,
+            )
 
     def for_each(self, action: Callable[[_AT], Any]) -> None:
         """
@@ -130,15 +143,16 @@ class ParallelStream(Generic[_AT]):
 
         :param action: An action to perform on the elements
         """
-        for _ in self.map(action).iterator(): pass
+        for _ in self.map(action).iterator():
+            pass
 
-    def sequential(self) -> 'stream.SequentialStream[_AT]':
+    def sequential(self) -> "stream.SequentialStream[_AT]":
         """
         :return: Sequential Stream. All ops applied on parallel stream still parallel.
         """
         return stream.SequentialStream(self.iterator())
 
-    def collect(self, collector: 'collectors.Collector[_AT, _RT]') -> _RT:
+    def collect(self, collector: "collectors.Collector[_AT, _RT]") -> _RT:
         """
         Collects the stream using supplied collector.
         This is terminal operation.
@@ -147,4 +161,26 @@ class ParallelStream(Generic[_AT]):
         :return: The result of collector.collect(...)
         """
         with Pool(processes=self.__n_processes) as pool:
-            return collector.collect(stream.SequentialStream(self.__iterator_pipe(pool)))
+            return collector.collect(
+                stream.SequentialStream(self.__iterator_pipe(pool))
+            )
+
+
+class ParallelNumberLikeStream(ParallelStream[_NAT]):
+    def max(self) -> _NAT:
+        """
+        :return: Returns a Nullable describing the maximum element of this stream, or an empty Nullable if this stream is empty.
+        """
+        reducer = cast(
+            Callable[[_NAT, _NAT], _NAT], partial(_order_reducer, selector=max)
+        )
+        return self.reduce(reducer)
+
+    def min(self) -> _NAT:
+        """
+        :return: Returns a Nullable describing the minimum element of this stream, or an empty Nullable if this stream is empty.
+        """
+        reducer = cast(
+            Callable[[_NAT, _NAT], _NAT], partial(_order_reducer, selector=min)
+        )
+        return self.reduce(reducer)

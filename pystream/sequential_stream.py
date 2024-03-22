@@ -1,15 +1,33 @@
+from ast import Call
 from functools import reduce
 from itertools import chain, islice, count
-from typing import Generic, TypeVar, Callable, Iterable, Any, Tuple, Iterator, List, Union, Generator
+from typing import (
+    Generic,
+    TypeVar,
+    Callable,
+    Iterable,
+    Any,
+    Tuple,
+    Iterator,
+    List,
+    Union,
+    Generator,
+    cast,
+)
 from multiprocessing import cpu_count
+from numbers import Number
+import operator as op
 
-import pystream.infrastructure.nullable as nullable
+import pystream.nullable as nullable
 import pystream.parallel_stream as parallel_stream
-import pystream.infrastructure.collectors as collectors
+import pystream.collectors as collectors
 import pystream.core.utils as utils
+import pystream.types
 
-_AT = TypeVar('_AT')
-_RT = TypeVar('_RT')
+_AT = TypeVar("_AT")
+_RT = TypeVar("_RT")
+
+_NAT = TypeVar("_NAT", bound=pystream.types.SupportsAddAndCompare)
 
 
 class SequentialStream(Generic[_AT], Iterable[_AT]):
@@ -20,7 +38,7 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
     :param `*iterables`: Source iterables for the SequentialStream object.  When multiple iterables are given, they will be concatenated.
     """
 
-    __iterable: Iterable[_AT]
+    __iterable: Iterator[_AT]
 
     def __init__(self, *iterables: Iterable[_AT]):
         self.__iterable = chain(*iterables)
@@ -37,7 +55,9 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         """
         return iter(self.__iterable)
 
-    def partition_iterator(self, partition_size: int) -> Generator[List[_AT], None, None]:
+    def partition_iterator(
+        self, partition_size: int
+    ) -> Generator[List[_AT], None, None]:
         """
         Creates iterator over partitions of stream. This is terminal operation.
 
@@ -120,7 +140,9 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         """
         return not self.any_match(predicate)
 
-    def flat_map(self, mapper: Callable[[_AT], "SequentialStream[_RT]"]) -> "SequentialStream[_RT]":
+    def flat_map(
+        self, mapper: Callable[[_AT], "SequentialStream[_RT]"]
+    ) -> "SequentialStream[_RT]":
         """
         Returns a stream consisting of the results of replacing each element of this stream with the contents of a
         mapped stream produced by applying the provided mapping function to each element.
@@ -139,28 +161,10 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         Returns the count of elements in this stream. This is a special case of a reduction.
         :return: The count of elements in this stream
         """
-        if hasattr(self.__iterable, '__len__'):
-            # noinspection PyTypeChecker
-            return len(self.__iterable)
+        if hasattr(self.__iterable, "__len__"):
+            return len(self.__iterable)  # type: ignore
+
         return self.reduce(0, lambda accumulator, element: accumulator + 1)
-
-    def sum(self) -> Union[_AT, int]:
-        """
-        :return: The sum of elements in this stream
-        """
-        return sum(self.__iterable)
-
-    def min(self) -> nullable.Nullable[_AT]:
-        """
-        :return: Returns a Nullable describing the minimum element of this stream, or an empty Nullable if this stream is empty.
-        """
-        return nullable.Nullable(min(self.__iterable, default=None))
-
-    def max(self) -> nullable.Nullable[_AT]:
-        """
-        :return: Returns a Nullable describing the maximum element of this stream, or an empty Nullable if this stream is empty.
-        """
-        return nullable.Nullable(max(self.__iterable, default=None))
 
     def limit(self, max_size: int) -> "SequentialStream[_AT]":
         """
@@ -179,7 +183,7 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         """
         return nullable.Nullable(next(self.__iterable, None))
 
-    def peek(self, action: Callable[[_AT], Any]) -> 'SequentialStream[_AT]':
+    def peek(self, action: Callable[[_AT], Any]) -> "SequentialStream[_AT]":
         """
         Returns a stream consisting of the elements of this stream, additionally performing the provided action on each
         element as elements are consumed from the resulting stream.
@@ -195,7 +199,7 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
 
         return self.map(with_action)
 
-    def collect(self, collector: 'collectors.Collector[_AT, _RT]') -> _RT:
+    def collect(self, collector: "collectors.Collector[_AT, _RT]") -> _RT:
         """
         Collects the stream using supplied collector.
         This is terminal operation.
@@ -205,7 +209,9 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         """
         return collector.collect(self)
 
-    def parallel(self, n_processes: int = cpu_count(), chunk_size: int = 1) -> "parallel_stream.ParallelStream[_AT]":
+    def parallel(
+        self, n_processes: int = cpu_count(), chunk_size: int = 1
+    ) -> "parallel_stream.ParallelStream[_AT]":
         """
         Creates parallel (multiprocessing) stream from current stream. All following operations will be performed in parallel.
 
@@ -213,7 +219,9 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         :param chunk_size: The size of chunk.
         :return: New parallel stream
         """
-        return parallel_stream.ParallelStream(self.__iterable, n_processes=n_processes, chunk_size=chunk_size)
+        return parallel_stream.ParallelStream(
+            self.__iterable, n_processes=n_processes, chunk_size=chunk_size
+        )
 
     @staticmethod
     def range(*args) -> "SequentialStream[int]":
@@ -248,3 +256,23 @@ class SequentialStream(Generic[_AT], Iterable[_AT]):
         :returns The new stream.
         """
         return SequentialStream(zip(*iterables))
+
+
+class NumericLikeStream(SequentialStream[_NAT]):
+    def sum(self) -> _NAT:
+        """
+        :return: The sum of elements in this stream
+        """
+        return cast(_NAT, sum(self.__iterable))
+
+    def min(self) -> nullable.Nullable[_NAT]:
+        """
+        :return: Returns a Nullable describing the minimum element of this stream, or an empty Nullable if this stream is empty.
+        """
+        return nullable.Nullable(min(self.__iterable, default=None))
+
+    def max(self) -> nullable.Nullable[_NAT]:
+        """
+        :return: Returns a Nullable describing the maximum element of this stream, or an empty Nullable if this stream is empty.
+        """
+        return nullable.Nullable(max(self.__iterable, default=None))

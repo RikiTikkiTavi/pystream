@@ -1,7 +1,7 @@
-from typing import TypeVar, Generic, Optional, Callable, Union
+from typing import NoReturn, TypeVar, Generic, Optional, Callable, Union, cast
 
-_T = TypeVar('_T')
-_S = TypeVar('_S')
+_T = TypeVar("_T")
+_S = TypeVar("_S")
 
 
 class EmptyNullableException(Exception):
@@ -22,12 +22,12 @@ class Nullable(Generic[_T]):
         """Returns True if item is not None."""
         return self._item is not None
 
-    def get(self) -> Optional[_T]:
+    def get(self) -> Union[Optional[_T], NoReturn]:
         """Gets the item if present.
 
         Raises:
             EmptyNullableException : Attempting to get a missing item.
-            """
+        """
         if self.is_present():
             return self._item
         raise EmptyNullableException()
@@ -37,8 +37,8 @@ class Nullable(Generic[_T]):
 
         Args:
             default_value : Value to return instead of a None value.
-            """
-        return self._item if self.is_present() else default_value
+        """
+        return cast(_T, self._item) if self.is_present() else default_value
 
     def or_else_throw(self, exception: Union[Exception, Callable[[], Exception]]) -> _T:
         """Returns if present, raises exception if missing.
@@ -47,7 +47,7 @@ class Nullable(Generic[_T]):
             exception : Either an exception, or a callable which returns an exception.
         """
         if self.is_present():
-            return self._item
+            return cast(_T, self._item)
         if isinstance(exception, Exception):
             raise exception
         raise exception()
@@ -59,7 +59,7 @@ class Nullable(Generic[_T]):
             supplier (Callable) : Supplied return value will be return in place of a None value. Should not require parameters.
         """
         if self.is_present():
-            return self._item
+            return cast(_T, self._item)
         return supplier()
 
     def if_present(self, consumer: Callable[[_T], None]) -> "Nullable[_T]":
@@ -69,10 +69,12 @@ class Nullable(Generic[_T]):
             consumer (Callable) : Function to be invoked with a non-nil parameter.
         """
         if self.is_present():
-            consumer(self._item)
+            consumer(cast(_T, self._item))
         return self
 
-    def filter(self, predicate: Union[Callable[[_T], bool], Callable[..., bool]]) -> "Nullable[_T]":
+    def filter(
+        self, predicate: Union[Callable[[_T], bool], Callable[..., bool]]
+    ) -> "Nullable[_T]":
         """Filters item given a criterion.
 
         Args:
@@ -80,7 +82,7 @@ class Nullable(Generic[_T]):
 
         """
         if self.is_present():
-            return self if predicate(self._item) else Nullable.empty()
+            return self if predicate(cast(_T, self._item)) else Nullable.empty()
         return Nullable.empty()
 
     def map(self, callable: Callable[[_T], _S]) -> "Nullable[_S]":
@@ -90,7 +92,7 @@ class Nullable(Generic[_T]):
             callable (Callable) : Invoked with a non-nil parameter.
         """
         if self.is_present():
-            return Nullable(callable(self._item))
+            return Nullable(callable(cast(_T, self._item)))
         return Nullable.empty()
 
     def __bool__(self) -> bool:

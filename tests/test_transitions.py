@@ -2,7 +2,7 @@ import unittest
 from functools import reduce
 from time import sleep
 
-from pystream.infrastructure.collectors import to_collection
+from pystream.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
 from pystream.sequential_stream import SequentialStream
 

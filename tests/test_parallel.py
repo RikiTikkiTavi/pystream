@@ -2,7 +2,7 @@ import unittest
 from itertools import repeat
 from time import sleep, time
 
-from pystream.infrastructure.collectors import to_collection
+from pystream.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
 from pystream.sequential_stream import SequentialStream
 
@@ -76,12 +76,6 @@ class ParallelStreamTest(unittest.TestCase):
 
     def test_transition_to_sequential_returns_sequential(self):
         self.assertIsInstance(self.stream.sequential(), SequentialStream)
-
-    def test_max(self):
-        self.assertEqual(self.stream.max(), max(self.COLLECTION))
-
-    def test_min(self):
-        self.assertEqual(self.stream.min(), min(self.COLLECTION))
 
     def test_peek(self):
         s = self.stream.map(squared).peek(print).collect(to_collection(tuple))

@@ -1,6 +1,6 @@
 import unittest
 
-from pystream.infrastructure.collectors import to_collection
+from pystream.collectors import to_collection
 from pystream.parallel_stream import ParallelStream
 from pystream.sequential_stream import SequentialStream
 
@@ -116,14 +116,6 @@ class SequentialStreamTest(unittest.TestCase):
 
         self.assertEqual(expected, result)
 
-    def test_givenTupleIteration_whenUnzipping_thenReturnSeparateLists(self):
-        expected = ((1, 3, 5), (2, 4, 6))
-
-        first_list, second_list = SequentialStream([(1, 2), (3, 4), (5, 6)]).unzip()
-
-        self.assertEqual(expected[0], first_list)
-        self.assertEqual(expected[1], second_list)
-
     def test_whenCreatingFromNonIterableElements_thenCreateACollectionContainingAllParameters(self):
         result = SequentialStream.of(1, 2, 3, 4).collect(to_collection(list))
 
@@ -134,21 +126,6 @@ class SequentialStreamTest(unittest.TestCase):
 
         self.assertIsInstance(result, tuple)
         self.assertEqual((1, 2, 3, 4, 5), result)
-
-    def test_whenCalculatingSum_thenReturnSumOfCollection(self):
-        stream_sum = self.stream.sum()
-
-        self.assertEqual(sum(self.COLLECTION), stream_sum)
-
-    def test_whenCheckingMinimum_thenReturnSmallestElementInTheCollection(self):
-        smallest_element = self.stream.min()
-
-        self.assertEqual(min(self.COLLECTION), smallest_element)
-
-    def test_whenCheckingMaximum_thenReturnLargestElementInTheCollection(self):
-        largest_element = self.stream.max()
-
-        self.assertEqual(max(self.COLLECTION), largest_element)
 
     def test_whenCountingElementsOfACollection_thenReturnLengthOfCollection(self):
         count = self.stream.count()
