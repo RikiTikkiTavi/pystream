@@ -6,7 +6,6 @@ from typing import (
     List,
     Iterable,
     Any,
-    TypeGuard,
     TypeVar,
     Generic,
     Tuple,
